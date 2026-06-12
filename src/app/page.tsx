@@ -1,3 +1,7 @@
+// ISR: without this the page is prerendered once at build time and the
+// waitlist count freezes. Must be a statically analyzable literal (no `60 * 1`).
+export const revalidate = 60;
+
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import StatRow from "@/components/StatRow";
