@@ -61,7 +61,7 @@ export default async function Hero() {
           style={{ fontSize: "clamp(16px, 2vw, 20px)" }}
         >
           Track your Pomodoro sessions. Post your daily focus time. See what
-          your friends are building. No cheating — just discipline made visible.
+          your friends are grinding. No cheating — just discipline made visible.
         </p>
 
         <div className="fade-up delay-500 mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
