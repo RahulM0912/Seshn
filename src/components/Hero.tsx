@@ -1,6 +1,8 @@
-import { supabase } from "@/lib/supabase";
+import { createAnonClient } from "@/lib/supabase-server";
 
 async function getWaitlistCount(): Promise<number> {
+  // Anonymous, cookie-free read so the landing page stays static/ISR.
+  const supabase = createAnonClient();
   const { data, error } = await supabase.rpc("get_waitlist_count");
   if (error || typeof data !== "number") return 0;
   return data;
