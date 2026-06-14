@@ -97,6 +97,66 @@ export async function getFeedSessions(
     .filter((s): s is SessionWithProfile => s !== null);
 }
 
+/** Profiles `userId` follows, most-recently-followed first. */
+export async function getFollowing(userId: string): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data: edges, error } = await supabase
+    .from("follows")
+    .select("following_id, created_at")
+    .eq("follower_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) console.error("getFollowing:", error.message);
+  if (!edges || edges.length === 0) return [];
+
+  const ids = edges.map((e) => e.following_id);
+  const { data: profiles, error: pErr } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", ids);
+  if (pErr) console.error("getFollowing profiles:", pErr.message);
+
+  const byId = new Map((profiles ?? []).map((p) => [p.id, p] as const));
+  return ids.map((id) => byId.get(id)).filter((p): p is Profile => p != null);
+}
+
+/** Profiles that follow `userId`, most-recent-follower first. */
+export async function getFollowers(userId: string): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data: edges, error } = await supabase
+    .from("follows")
+    .select("follower_id, created_at")
+    .eq("following_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) console.error("getFollowers:", error.message);
+  if (!edges || edges.length === 0) return [];
+
+  const ids = edges.map((e) => e.follower_id);
+  const { data: profiles, error: pErr } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", ids);
+  if (pErr) console.error("getFollowers profiles:", pErr.message);
+
+  const byId = new Map((profiles ?? []).map((p) => [p.id, p] as const));
+  return ids.map((id) => byId.get(id)).filter((p): p is Profile => p != null);
+}
+
+/** Does `followerId` currently follow `followingId`? (RLS allows reading any edge.) */
+export async function isFollowing(
+  followerId: string,
+  followingId: string,
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("follows")
+    .select("follower_id")
+    .eq("follower_id", followerId)
+    .eq("following_id", followingId)
+    .maybeSingle();
+  if (error) console.error("isFollowing:", error.message);
+  return data !== null;
+}
+
 /** Today's focus minutes for a user, in their timezone (DB RPC). */
 export async function getDailyFocusMinutes(userId: string): Promise<number> {
   const supabase = await createClient();

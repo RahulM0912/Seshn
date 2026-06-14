@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Flame } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import SessionCard from "@/components/SessionCard";
+import FollowButton from "@/components/FollowButton";
 import { createClient } from "@/lib/supabase-server";
 import {
   getDailyFocusMinutes,
@@ -11,6 +12,7 @@ import {
   getProfileByUsername,
   getStreak,
   getUserSessions,
+  isFollowing,
 } from "@/lib/queries";
 import { avatarColor, formatFocusTime, initials, isStreakAlive } from "@/lib/format";
 
@@ -91,6 +93,28 @@ export default async function ProfilePage({
       ? streak.current_streak
       : 0;
 
+  // Follow control: a live optimistic button for a signed-in viewer looking at
+  // someone else; a login nudge for signed-out visitors; nothing on your own
+  // profile (you can't follow yourself).
+  const isOwnProfile = viewer?.id === profile.id;
+  const following =
+    viewer && !isOwnProfile ? await isFollowing(viewer.id, profile.id) : false;
+  const followSlot =
+    viewer && !isOwnProfile ? (
+      <FollowButton
+        viewerId={viewer.id}
+        targetId={profile.id}
+        initialFollowing={following}
+      />
+    ) : !viewer ? (
+      <Link
+        href="/login"
+        className="flex-shrink-0 rounded-[20px] bg-[#22C55E] px-4 py-1.5 text-[13px] font-medium text-[#0A0A0A] transition-colors hover:bg-[#1FB055]"
+      >
+        Follow
+      </Link>
+    ) : null;
+
   const body = (
     <div className="mx-auto max-w-2xl px-4 py-6">
       {/* Profile header */}
@@ -116,6 +140,7 @@ export default async function ProfilePage({
               </p>
             )}
           </div>
+          {followSlot}
         </div>
 
         <div className="mt-5 flex flex-wrap items-end gap-6">

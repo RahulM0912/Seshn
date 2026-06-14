@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Bell, LayoutList, User, Users } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Bell, LayoutList, LogOut, User, Users } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { avatarColor, initials } from "@/lib/format";
 
 export default function AppNavbar({
@@ -15,7 +17,39 @@ export default function AppNavbar({
   displayName: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const av = avatarColor(userId);
+
+  // Account menu: the avatar opens a dropdown (profile + sign out) rather than
+  // linking straight to the profile — Profile already has its own nav link.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
+  async function signOut() {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
 
   const links = [
     { href: "/feed", label: "Feed", Icon: LayoutList },
@@ -62,15 +96,55 @@ export default function AppNavbar({
         >
           <Bell size={15} aria-hidden />
         </button>
-        <Link
-          href={`/${username}`}
-          aria-label="Your profile"
-          title={displayName}
-          style={{ backgroundColor: av.bg, color: av.text }}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-medium"
-        >
-          {initials(displayName)}
-        </Link>
+        <div ref={menuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="Account menu"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            title={displayName}
+            style={{ backgroundColor: av.bg, color: av.text }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-medium transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22C55E]"
+          >
+            {initials(displayName)}
+          </button>
+
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 overflow-hidden rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] py-1 shadow-xl shadow-black/40"
+            >
+              <div className="border-b-[0.5px] border-[#2A2A2A] px-3 py-2.5">
+                <div className="truncate text-[13px] font-medium text-white">
+                  {displayName}
+                </div>
+                <div className="truncate text-[11px] text-[#555555]">
+                  @{username}
+                </div>
+              </div>
+              <Link
+                href={`/${username}`}
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#888888] transition-colors hover:bg-[#1C1C1C] hover:text-white"
+              >
+                <User size={15} aria-hidden />
+                View profile
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={signOut}
+                disabled={signingOut}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#888888] transition-colors hover:bg-[#1C1C1C] hover:text-[#F87171] disabled:opacity-60"
+              >
+                <LogOut size={15} aria-hidden />
+                {signingOut ? "Signing out…" : "Sign out"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
