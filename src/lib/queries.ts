@@ -157,6 +157,26 @@ export async function isFollowing(
   return data !== null;
 }
 
+/**
+ * Of the given sessions, which has `userId` liked? Returns a Set of session ids
+ * for O(1) lookup while rendering a list (one query for the whole page, not one
+ * per card). Empty input short-circuits — no pointless round-trip.
+ */
+export async function getLikedSessionIds(
+  userId: string,
+  sessionIds: string[],
+): Promise<Set<string>> {
+  if (sessionIds.length === 0) return new Set();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("likes")
+    .select("session_id")
+    .eq("user_id", userId)
+    .in("session_id", sessionIds);
+  if (error) console.error("getLikedSessionIds:", error.message);
+  return new Set((data ?? []).map((l) => l.session_id));
+}
+
 /** Today's focus minutes for a user, in their timezone (DB RPC). */
 export async function getDailyFocusMinutes(userId: string): Promise<number> {
   const supabase = await createClient();

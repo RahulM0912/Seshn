@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase-server";
 import {
   getDailyFocusMinutes,
   getFollowCounts,
+  getLikedSessionIds,
   getProfileByUsername,
   getStreak,
   getUserSessions,
@@ -99,6 +100,15 @@ export default async function ProfilePage({
   const isOwnProfile = viewer?.id === profile.id;
   const following =
     viewer && !isOwnProfile ? await isFollowing(viewer.id, profile.id) : false;
+
+  // Which of these sessions the signed-in viewer has 🔥'd (one query for the
+  // list). Signed-out visitors get the read-only count — no lookup needed.
+  const likedIds = viewer
+    ? await getLikedSessionIds(
+        viewer.id,
+        sessions.map((s) => s.id),
+      )
+    : new Set<string>();
   const followSlot =
     viewer && !isOwnProfile ? (
       <FollowButton
@@ -176,6 +186,8 @@ export default async function ProfilePage({
             <SessionCard
               key={session.id}
               session={{ ...session, profiles: profile }}
+              viewerId={viewer?.id ?? null}
+              liked={likedIds.has(session.id)}
             />
           ))}
         </div>
