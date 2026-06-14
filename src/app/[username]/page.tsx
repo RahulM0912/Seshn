@@ -5,7 +5,6 @@ import { Flame } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import SessionCard from "@/components/SessionCard";
 import FollowButton from "@/components/FollowButton";
-import { createClient } from "@/lib/supabase-server";
 import {
   getDailyFocusMinutes,
   getFollowCounts,
@@ -15,6 +14,7 @@ import {
   getUserSessions,
   isFollowing,
 } from "@/lib/queries";
+import { getViewer } from "@/lib/viewer";
 import { avatarColor, formatFocusTime, initials, isStreakAlive } from "@/lib/format";
 
 // Public profile — a root-level route (seshn.in/<username>), reachable signed-out.
@@ -38,24 +38,6 @@ export async function generateMetadata({
     title: `${profile.display_name} (@${profile.username}) · Seshn`,
     description: profile.bio ?? `${profile.display_name}'s focus sessions on Seshn.`,
   };
-}
-
-type Viewer = { id: string; username: string; displayName: string };
-
-/** The signed-in viewer (any user), used to decide whether to render app chrome. */
-async function getViewer(): Promise<Viewer | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data } = await supabase
-    .from("profiles")
-    .select("username, display_name, onboarded")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!data?.onboarded) return null;
-  return { id: user.id, username: data.username, displayName: data.display_name };
 }
 
 function Stat({ value, label }: { value: React.ReactNode; label: string }) {

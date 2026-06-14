@@ -294,3 +294,15 @@ export type Streak = Tables["streaks"]["Row"];
 // A session joined with its author profile — the shape `SessionCard` renders and
 // what `select("*, profiles(*)")` returns (sessions → profiles is to-one).
 export type SessionWithProfile = Session & { profiles: Profile };
+
+// A comment joined with its author profile (Slice 8 / Step 9). Joined in app code
+// via a second `profiles` query, same as the feed — not the PostgREST embed.
+export type CommentWithProfile = Comment & { profiles: Profile };
+
+// An inbox notification with its actor's profile + (for `comment` rows) the body
+// preview pulled from the referenced comment (Slice 9 / Step 10). `commentBody` is
+// null for like/follow rows or when the comment was since soft-deleted.
+export type NotificationFeedItem = Notification & {
+  actor: Profile;
+  commentBody: string | null;
+};

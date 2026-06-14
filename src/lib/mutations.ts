@@ -78,6 +78,33 @@ export function unlikeSession(userId: string, sessionId: string) {
     .eq("session_id", sessionId);
 }
 
+// Comments (Slice 8 / Step 9). RLS pins `user_id` to the caller and only allows
+// commenting on sessions you can see; `sessions.comment_count` is maintained by a
+// DB trigger — never written here. Deletes are SOFT (set `deleted_at`): the same
+// trigger decrements the count, and RLS hides the row from future reads.
+export function addComment(userId: string, sessionId: string, body: string) {
+  return supabase
+    .from("comments")
+    .insert({ user_id: userId, session_id: sessionId, body });
+}
+
+export function softDeleteComment(commentId: string) {
+  return supabase
+    .from("comments")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", commentId);
+}
+
+// Mark every unread notification read (Slice 9 / Step 10) — called when the inbox
+// panel opens. RLS scopes the UPDATE to the caller's own rows, so the `read_at`
+// filter is all that's needed; it never touches anyone else's inbox.
+export function markNotificationsRead() {
+  return supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .is("read_at", null);
+}
+
 // Claim username + display name and flip `onboarded` (Slice 1). `23505` on the
 // returned error means the handle is taken.
 export function completeOnboarding(

@@ -1,23 +1,28 @@
 import { CircleDot, Flame, MessageCircle } from "lucide-react";
 import type { SessionWithProfile } from "@/lib/database.types";
 import { avatarColor, formatFocusTime, initials, relativeTime } from "@/lib/format";
-import LikeButton from "@/components/LikeButton";
+import SessionCardFooter from "@/components/SessionCardFooter";
+import VisibilityBadge from "@/components/VisibilityBadge";
 
 // One feed/profile post. Presentational + data-driven (the landing page keeps its
-// own `FeedMockup`). Stays a Server Component — only the 🔥 extracts an
-// interactive client child (`LikeButton`) when there's a signed-in viewer; a
-// signed-out / public view keeps the read-only count. Comments (Step 9) follow.
+// own `FeedMockup`). Stays a Server Component — a signed-in viewer gets the
+// interactive `SessionCardFooter` (🔥 like + 💬 comments) as a client child; a
+// signed-out / public view keeps a static, read-only footer.
 //
 // `viewerId` is the signed-in user (null when signed out); `liked` is whether
 // that viewer has already liked this session (from a batch lookup by the page).
+// `defaultCommentsOpen` lets the session permalink start with the thread expanded
+// (a comment notification deep-links straight to its conversation).
 export default function SessionCard({
   session,
   viewerId = null,
   liked = false,
+  defaultCommentsOpen = false,
 }: {
   session: SessionWithProfile;
   viewerId?: string | null;
   liked?: boolean;
+  defaultCommentsOpen?: boolean;
 }) {
   const author = session.profiles;
   const av = avatarColor(author.id);
@@ -96,35 +101,28 @@ export default function SessionCard({
         </p>
       )}
 
-      {/* Footer — 🔥 is interactive for a signed-in viewer; 💬 lands in Step 9 */}
-      <footer className="flex items-center gap-3 border-t-[0.5px] border-[#1C1C1C] pt-2.5">
-        {viewerId ? (
-          <LikeButton
-            sessionId={session.id}
-            viewerId={viewerId}
-            initialLiked={liked}
-            initialCount={session.like_count}
-          />
-        ) : (
+      {/* Footer — signed-in viewers get the interactive like/comment footer;
+          signed-out / public views keep a static, read-only one. */}
+      {viewerId ? (
+        <SessionCardFooter
+          session={session}
+          viewerId={viewerId}
+          liked={liked}
+          defaultCommentsOpen={defaultCommentsOpen}
+        />
+      ) : (
+        <footer className="flex items-center gap-3 border-t-[0.5px] border-[#1C1C1C] pt-2.5">
           <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
             <Flame size={14} aria-hidden /> {session.like_count}
             <span className="sr-only">likes</span>
           </span>
-        )}
-        <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
-          <MessageCircle size={14} aria-hidden /> {session.comment_count}
-          <span className="sr-only">comments</span>
-        </span>
-        {session.visibility === "public" ? (
-          <span className="ml-auto rounded-[20px] border-[0.5px] border-[#22C55E33] px-2 py-[2px] text-[10px] text-[#22C55E]">
-            Public
+          <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
+            <MessageCircle size={14} aria-hidden /> {session.comment_count}
+            <span className="sr-only">comments</span>
           </span>
-        ) : (
-          <span className="ml-auto rounded-[20px] border-[0.5px] border-[#2A2A2A] px-2 py-[2px] text-[10px] capitalize text-[#888888]">
-            {session.visibility}
-          </span>
-        )}
-      </footer>
+          <VisibilityBadge visibility={session.visibility} />
+        </footer>
+      )}
     </article>
   );
 }

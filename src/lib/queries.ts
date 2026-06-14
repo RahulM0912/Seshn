@@ -45,6 +45,36 @@ export async function getUserSessions(userId: string): Promise<Session[]> {
 }
 
 /**
+ * A single session by id, with its author profile attached (for the session
+ * permalink page / notification deep-links). RLS scopes visibility, so a private
+ * session returns null for anyone but its owner — the page turns that into a 404.
+ * Author joined in app code (2nd query), same as the feed.
+ */
+export async function getSessionById(
+  id: string,
+): Promise<SessionWithProfile | null> {
+  const supabase = await createClient();
+  const { data: session, error } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) console.error("getSessionById:", error.message);
+  if (!session) return null;
+
+  const { data: author, error: pErr } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", session.user_id)
+    .maybeSingle();
+  if (pErr) console.error("getSessionById profile:", pErr.message);
+  if (!author) return null;
+
+  return { ...session, profiles: author };
+}
+
+/**
  * The "Following" feed: sessions from the viewer plus everyone they follow,
  * newest first (capped at 50). RLS enforces visibility independently — a
  * `followers`-only post from someone you follow shows up, a `private` one never
