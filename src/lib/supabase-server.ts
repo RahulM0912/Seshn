@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import type { Database } from "@/lib/database.types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -32,7 +33,7 @@ const SUPABASE_KEY = supabaseKey;
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(SUPABASE_URL, SUPABASE_KEY, {
+  return createServerClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -59,5 +60,5 @@ export async function createClient() {
  * never use it for anything user-specific.
  */
 export function createAnonClient() {
-  return createSupabaseClient(SUPABASE_URL, SUPABASE_KEY);
+  return createSupabaseClient<Database>(SUPABASE_URL, SUPABASE_KEY);
 }

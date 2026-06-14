@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { Database } from "@/lib/database.types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -16,4 +17,4 @@ if (!supabaseUrl || !supabaseKey) {
 //
 // Import this in Client Components only. Server Components / Route Handlers use
 // `@/lib/supabase-server`.
-export const supabase = createBrowserClient(supabaseUrl, supabaseKey);
+export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseKey);

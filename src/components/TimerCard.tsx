@@ -1,7 +1,16 @@
 "use client";
 
-import { Pause, Play, RefreshCw } from "lucide-react";
-import { SESSION_GOAL, useTimer, type TimerPhase } from "@/lib/timer-store";
+import { useState } from "react";
+import { Pause, Play, RefreshCw, Settings, Square } from "lucide-react";
+import {
+  BREAK_PRESETS,
+  FOCUS_PRESETS,
+  getPendingSession,
+  SESSION_GOAL,
+  useTimer,
+  type TimerPhase,
+} from "@/lib/timer-store";
+import { useSessionPostStore } from "@/lib/session-post-store";
 
 const PHASE_LABEL: Record<TimerPhase, string> = {
   idle: "Ready",
@@ -15,6 +24,8 @@ const PHASE_LABEL: Record<TimerPhase, string> = {
 // mockup's `.timer-card` (docs/design.md → App design language).
 export default function TimerCard() {
   const t = useTimer();
+  const openModal = useSessionPostStore((s) => s.openModal);
+  const [showSettings, setShowSettings] = useState(false);
 
   const onPrimary = () => {
     if (t.running) t.pause();
@@ -22,19 +33,60 @@ export default function TimerCard() {
     else t.resume();
   };
 
+  const onEndSession = () => {
+    const pending = getPendingSession();
+    if (!pending) return;
+    if (t.running) t.pause(); // freeze the clock behind the modal
+    openModal(pending);
+  };
+
   const primaryLabel = t.running ? "Pause" : t.phase === "idle" ? "Start" : "Resume";
   const PrimaryIcon = t.running ? Pause : Play;
   const filledDots = Math.min(t.pomodorosCompleted, SESSION_GOAL);
   const percent = Math.round(t.progress * 100);
+  const idle = t.phase === "idle";
 
   return (
     <div className="rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-4">
       <div className="mb-3.5 flex items-center justify-between">
         <span className="text-[13px] font-medium text-white">Your session</span>
-        <span className="rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2 py-[3px] text-[10px] text-[#22C55E]">
-          {PHASE_LABEL[t.phase]}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {/* Durations can only change while idle. */}
+          {idle && (
+            <button
+              type="button"
+              onClick={() => setShowSettings((v) => !v)}
+              aria-label="Timer settings"
+              aria-expanded={showSettings}
+              className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded-full transition-colors hover:text-white ${
+                showSettings ? "text-white" : "text-[#888888]"
+              }`}
+            >
+              <Settings size={14} aria-hidden />
+            </button>
+          )}
+          <span className="rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2 py-[3px] text-[10px] text-[#22C55E]">
+            {PHASE_LABEL[t.phase]}
+          </span>
+        </div>
       </div>
+
+      {idle && showSettings && (
+        <div className="mb-3.5 flex flex-col gap-2.5 rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] p-3">
+          <PresetRow
+            label="Focus"
+            values={FOCUS_PRESETS}
+            selected={t.focusMin}
+            onSelect={(min) => t.setDurations(min, t.breakMin)}
+          />
+          <PresetRow
+            label="Break"
+            values={BREAK_PRESETS}
+            selected={t.breakMin}
+            onSelect={(min) => t.setDurations(t.focusMin, min)}
+          />
+        </div>
+      )}
 
       <div
         role="timer"
@@ -82,13 +134,25 @@ export default function TimerCard() {
         <button
           type="button"
           onClick={t.reset}
-          disabled={t.phase === "idle"}
+          disabled={idle}
           aria-label="Reset timer"
           className="flex min-h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RefreshCw size={15} aria-hidden />
         </button>
       </div>
+
+      {/* End the session and post it — only meaningful once one's underway. */}
+      {!idle && (
+        <button
+          type="button"
+          onClick={onEndSession}
+          className="mt-2 flex min-h-[38px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] text-[12px] font-medium text-[#22C55E] transition-colors hover:bg-[#143d1d]"
+        >
+          <Square size={13} aria-hidden />
+          End session &amp; post
+        </button>
+      )}
 
       <div className="mt-2.5 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-3 py-2.5">
         <p className="mb-1.5 text-[10px] uppercase tracking-[0.06em] text-[#22C55E]">
@@ -112,6 +176,44 @@ export default function TimerCard() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PresetRow({
+  label,
+  values,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  values: readonly number[];
+  selected: number;
+  onSelect: (min: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[11px] text-[#888888]">{label}</span>
+      <div className="flex gap-1.5">
+        {values.map((min) => {
+          const active = min === selected;
+          return (
+            <button
+              key={min}
+              type="button"
+              onClick={() => onSelect(min)}
+              aria-pressed={active}
+              className={`min-w-[40px] cursor-pointer rounded-[6px] border-[0.5px] px-2 py-1 text-[11px] tabular-nums transition-colors ${
+                active
+                  ? "border-[#1A4D22] bg-[#0F2A15] text-[#22C55E]"
+                  : "border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] hover:text-white"
+              }`}
+            >
+              {min}m
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { completeOnboarding } from "@/lib/mutations";
 
 // Mirror of the DB constraint (profiles.username check). Client-side validation
 // is for fast feedback only; the database remains the source of truth.
@@ -40,10 +40,7 @@ export default function OnboardingForm({
     }
 
     setLoading(true);
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ username: handle, display_name: name, onboarded: true })
-      .eq("id", userId);
+    const { error: updateError } = await completeOnboarding(userId, handle, name);
 
     if (updateError) {
       // 23505 = unique_violation → the handle is already taken.
