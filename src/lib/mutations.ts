@@ -41,6 +41,24 @@ export function postSession(input: PostSessionInput) {
   return supabase.from("sessions").insert(payload);
 }
 
+// Follow / unfollow (Slice 6 / Step 7). RLS pins `follower_id` to the caller, so
+// you can only create/remove your OWN outgoing edge. On follow, a `23505`
+// (unique_violation) means the edge already exists — callers treat that as
+// success. Unfollow deleting a non-existent row is a no-op (not an error).
+export function followUser(followerId: string, followingId: string) {
+  return supabase
+    .from("follows")
+    .insert({ follower_id: followerId, following_id: followingId });
+}
+
+export function unfollowUser(followerId: string, followingId: string) {
+  return supabase
+    .from("follows")
+    .delete()
+    .eq("follower_id", followerId)
+    .eq("following_id", followingId);
+}
+
 // Claim username + display name and flip `onboarded` (Slice 1). `23505` on the
 // returned error means the handle is taken.
 export function completeOnboarding(
