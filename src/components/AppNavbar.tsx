@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, LayoutList, LogOut, User, Users } from "lucide-react";
+import { LayoutList, LogOut, User, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { avatarColor, initials } from "@/lib/format";
+import NotificationsBell from "@/components/NotificationsBell";
 
 export default function AppNavbar({
   userId,
@@ -88,14 +89,8 @@ export default function AppNavbar({
       </nav>
 
       <div className="flex items-center gap-[10px]">
-        {/* Notification bell — static placeholder; unread dot + panel land in Step 10. */}
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="flex h-8 w-8 items-center justify-center rounded-full border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] transition-colors hover:text-white"
-        >
-          <Bell size={15} aria-hidden />
-        </button>
+        {/* Unread dot + inbox panel; hides itself while a focus block runs. */}
+        <NotificationsBell viewerUsername={username} />
         <div ref={menuRef} className="relative">
           <button
             type="button"
