@@ -59,6 +59,25 @@ export function unfollowUser(followerId: string, followingId: string) {
     .eq("following_id", followingId);
 }
 
+// Like / unlike a session (Slice 7 / Step 8). RLS pins `user_id` to the caller,
+// so you can only add/remove your OWN 🔥. `sessions.like_count` is bumped by a DB
+// trigger — never written here. On like, a `23505` (the `(user_id, session_id)`
+// PK already exists) means you already liked it — callers treat that as success.
+// Unliking a row that isn't there is a harmless no-op.
+export function likeSession(userId: string, sessionId: string) {
+  return supabase
+    .from("likes")
+    .insert({ user_id: userId, session_id: sessionId });
+}
+
+export function unlikeSession(userId: string, sessionId: string) {
+  return supabase
+    .from("likes")
+    .delete()
+    .eq("user_id", userId)
+    .eq("session_id", sessionId);
+}
+
 // Claim username + display name and flip `onboarded` (Slice 1). `23505` on the
 // returned error means the handle is taken.
 export function completeOnboarding(

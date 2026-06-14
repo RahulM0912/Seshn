@@ -1,14 +1,23 @@
 import { CircleDot, Flame, MessageCircle } from "lucide-react";
 import type { SessionWithProfile } from "@/lib/database.types";
 import { avatarColor, formatFocusTime, initials, relativeTime } from "@/lib/format";
+import LikeButton from "@/components/LikeButton";
 
 // One feed/profile post. Presentational + data-driven (the landing page keeps its
-// own `FeedMockup`). Server Component for now — the 🔥/💬 footer is read-only;
-// likes (Step 7) and comments (Step 8) extract interactive client children.
+// own `FeedMockup`). Stays a Server Component — only the 🔥 extracts an
+// interactive client child (`LikeButton`) when there's a signed-in viewer; a
+// signed-out / public view keeps the read-only count. Comments (Step 9) follow.
+//
+// `viewerId` is the signed-in user (null when signed out); `liked` is whether
+// that viewer has already liked this session (from a batch lookup by the page).
 export default function SessionCard({
   session,
+  viewerId = null,
+  liked = false,
 }: {
   session: SessionWithProfile;
+  viewerId?: string | null;
+  liked?: boolean;
 }) {
   const author = session.profiles;
   const av = avatarColor(author.id);
@@ -87,12 +96,21 @@ export default function SessionCard({
         </p>
       )}
 
-      {/* Footer — read-only until Steps 7/8 */}
+      {/* Footer — 🔥 is interactive for a signed-in viewer; 💬 lands in Step 9 */}
       <footer className="flex items-center gap-3 border-t-[0.5px] border-[#1C1C1C] pt-2.5">
-        <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
-          <Flame size={14} aria-hidden /> {session.like_count}
-          <span className="sr-only">likes</span>
-        </span>
+        {viewerId ? (
+          <LikeButton
+            sessionId={session.id}
+            viewerId={viewerId}
+            initialLiked={liked}
+            initialCount={session.like_count}
+          />
+        ) : (
+          <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
+            <Flame size={14} aria-hidden /> {session.like_count}
+            <span className="sr-only">likes</span>
+          </span>
+        )}
         <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
           <MessageCircle size={14} aria-hidden /> {session.comment_count}
           <span className="sr-only">comments</span>

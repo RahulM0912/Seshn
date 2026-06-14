@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import SessionCard from "@/components/SessionCard";
 import InviteFriendCard from "@/components/InviteFriendCard";
 import { createClient } from "@/lib/supabase-server";
-import { getFeedSessions } from "@/lib/queries";
+import { getFeedSessions, getLikedSessionIds } from "@/lib/queries";
 
 // The real "Following" feed (Step 6): sessions from you and everyone you follow,
 // newest first, fetched on load (no realtime in v1). Per-user + per-request, so
@@ -33,6 +33,12 @@ export default async function FeedPage() {
   // own posts.
   const hasOthers = sessions.some((s) => s.user_id !== user.id);
 
+  // Which of these did I already 🔥? One query for the page (not per card).
+  const likedIds = await getLikedSessionIds(
+    user.id,
+    sessions.map((s) => s.id),
+  );
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-3 p-4">
       {/* Tabs — only "Following" is live in v1; Explore is stubbed (deferred). */}
@@ -61,7 +67,12 @@ export default async function FeedPage() {
       {sessions.length > 0 && (
         <div className="flex flex-col gap-3">
           {sessions.map((session) => (
-            <SessionCard key={session.id} session={session} />
+            <SessionCard
+              key={session.id}
+              session={session}
+              viewerId={user.id}
+              liked={likedIds.has(session.id)}
+            />
           ))}
         </div>
       )}
