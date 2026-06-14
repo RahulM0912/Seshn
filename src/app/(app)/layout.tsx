@@ -27,11 +27,17 @@ export default async function AppLayout({
 
   if (!profile?.onboarded) redirect("/onboarding");
 
+  // h-dvh (not h-screen) so the mobile URL bar doesn't clip the layout. The body
+  // uses the FULL screen width (no max-w cap); the timer column is widened instead
+  // (320px on tablet → 400px on laptop) so the timer gets more room and the
+  // feed:sidebar ratio reads balanced rather than a thin rail beside a huge feed.
+  // Two columns from md up (tablets side-by-side); below md it's one scrolling
+  // column with the sidebar reflowed above the feed via `order`.
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#0A0A0A]">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#0A0A0A]">
       <AppNavbar username={profile.username} displayName={profile.display_name} />
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_300px]">
-        <main className="overflow-y-auto lg:border-r-[0.5px] lg:border-[#2A2A2A]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[1fr_320px] md:overflow-hidden lg:grid-cols-[1fr_400px]">
+        <main className="order-2 md:order-1 md:overflow-y-auto md:border-r-[0.5px] md:border-[#2A2A2A]">
           {children}
         </main>
         <AppSidebar />
