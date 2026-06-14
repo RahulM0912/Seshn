@@ -25,7 +25,7 @@ export default function AppNavbar({
   ];
 
   return (
-    <header className="flex h-[52px] flex-shrink-0 items-center justify-between border-b-[0.5px] border-[#2A2A2A] bg-[#111111] px-5">
+    <header className="flex h-[52px] flex-shrink-0 items-center justify-between border-b-[0.5px] border-[#2A2A2A] bg-[#111111] px-4 sm:px-5">
       <Link href="/feed" className="flex items-center gap-[7px]">
         <span aria-hidden className="h-2 w-2 rounded-full bg-[#22C55E]" />
         <span className="text-base font-medium text-white">Seshn</span>
@@ -39,14 +39,16 @@ export default function AppNavbar({
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center gap-[5px] rounded-[20px] px-[10px] py-[5px] text-[13px] transition-colors ${
+              title={label}
+              className={`flex items-center gap-[5px] rounded-[20px] px-2.5 py-2 text-[13px] transition-colors sm:py-[5px] ${
                 active
                   ? "bg-[#1C1C1C] text-white"
                   : "text-[#888888] hover:text-white"
               }`}
             >
               <Icon size={15} aria-hidden />
-              {label}
+              {/* Labels collapse to icon-only below sm so the bar fits on phones */}
+              <span className="hidden sm:inline">{label}</span>
             </Link>
           );
         })}
