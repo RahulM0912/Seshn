@@ -3,20 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, LayoutList, User, Users } from "lucide-react";
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
-}
+import { avatarColor, initials } from "@/lib/format";
 
 export default function AppNavbar({
+  userId,
   username,
   displayName,
 }: {
+  userId: string;
   username: string;
   displayName: string;
 }) {
   const pathname = usePathname();
+  const av = avatarColor(userId);
 
   const links = [
     { href: "/feed", label: "Feed", Icon: LayoutList },
@@ -67,7 +66,8 @@ export default function AppNavbar({
           href={`/${username}`}
           aria-label="Your profile"
           title={displayName}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-[#22C55E] text-[11px] font-medium text-[#0A0A0A]"
+          style={{ backgroundColor: av.bg, color: av.text }}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-medium"
         >
           {initials(displayName)}
         </Link>
