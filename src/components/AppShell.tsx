@@ -31,7 +31,7 @@ export default function AppShell({
         <main className="order-2 md:order-1 md:overflow-y-auto md:border-r-[0.5px] md:border-[#2A2A2A]">
           {children}
         </main>
-        <AppSidebar />
+        <AppSidebar userId={userId} />
       </div>
       {/* Mounted at the shell level so it overlays the whole app; opened from the
           TimerCard's "End session" button via the post-session store. */}

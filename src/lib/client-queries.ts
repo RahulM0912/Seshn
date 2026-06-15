@@ -51,6 +51,31 @@ export async function getSessionComments(
     .filter((c): c is CommentWithProfile => c !== null);
 }
 
+/**
+ * Whether `username` is free to claim — used for live feedback while a user
+ * picks/changes their handle (onboarding + settings). Profiles are world-readable
+ * (public profile pages), so this is safe from the browser. A row owned by
+ * `excludeId` (the caller's own profile) counts as available — it's already
+ * theirs. Returns `true` on error so a hiccup never blocks submit; the DB unique
+ * constraint is the real guard (callers handle `23505`).
+ */
+export async function isUsernameAvailable(
+  username: string,
+  excludeId?: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", username.toLowerCase())
+    .maybeSingle();
+  if (error) {
+    console.error("isUsernameAvailable:", error.message);
+    return true;
+  }
+  if (!data) return true;
+  return excludeId ? data.id === excludeId : false;
+}
+
 /** Unread notification count for the bell badge (cheap RPC, polled on load). */
 export async function getUnreadNotificationCount(): Promise<number> {
   const { data, error } = await supabase.rpc("get_unread_notification_count");

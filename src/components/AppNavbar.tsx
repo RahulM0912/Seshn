@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { LayoutList, LogOut, User, Users } from "lucide-react";
+import { LayoutList, LogOut, Settings, User, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { avatarColor, initials } from "@/lib/format";
 import NotificationsBell from "@/components/NotificationsBell";
@@ -126,6 +126,15 @@ export default function AppNavbar({
               >
                 <User size={15} aria-hidden />
                 View profile
+              </Link>
+              <Link
+                href="/settings"
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#888888] transition-colors hover:bg-[#1C1C1C] hover:text-white"
+              >
+                <Settings size={15} aria-hidden />
+                Settings
               </Link>
               <button
                 type="button"
