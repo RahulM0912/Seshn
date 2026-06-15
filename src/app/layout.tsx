@@ -45,7 +45,14 @@ export default function RootLayout({
       lang="en"
       className={`${syne.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#0A0A0A] text-white">
+      {/* suppressHydrationWarning: browser extensions (Grammarly, etc.) inject
+          data-* attributes onto <body> before React hydrates, which the server
+          can't predict. This only ignores attribute/text diffs on <body> itself,
+          not its children. */}
+      <body
+        suppressHydrationWarning
+        className="min-h-full flex flex-col bg-[#0A0A0A] text-white"
+      >
         {children}
       </body>
     </html>

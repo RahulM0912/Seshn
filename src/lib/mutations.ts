@@ -105,15 +105,48 @@ export function markNotificationsRead() {
     .is("read_at", null);
 }
 
-// Claim username + display name and flip `onboarded` (Slice 1). `23505` on the
+// Claim username + display name, set the browser-detected timezone, and flip
+// `onboarded` (Slice 1). Timezone is auto-detected on the client (no manual
+// picker) so streak/day-boundary math is correct from day one. `23505` on the
 // returned error means the handle is taken.
 export function completeOnboarding(
   userId: string,
   username: string,
   displayName: string,
+  timezone: string,
 ) {
   return supabase
     .from("profiles")
-    .update({ username, display_name: displayName, onboarded: true })
+    .update({ username, display_name: displayName, timezone, onboarded: true })
+    .eq("id", userId);
+}
+
+// Silent timezone correction. Called when the browser's detected zone differs
+// from the stored one (e.g. the user moved or onboarded before this existed);
+// keeps streak/day-boundary math accurate with no user action. RLS scopes it to
+// the caller's own row.
+export function updateTimezone(userId: string, timezone: string) {
+  return supabase.from("profiles").update({ timezone }).eq("id", userId);
+}
+
+// Edit profile from the Settings page (Slice 11 / Step 12). RLS lets a user
+// update only their own row. Username keeps the same `23505` (unique_violation)
+// handling as onboarding — callers surface "username taken". `bio` is null when
+// cleared. Timezone is managed separately (auto-detected via `updateTimezone`),
+// so it's intentionally not touched here. Never touches `onboarded`.
+export interface ProfileEdit {
+  displayName: string;
+  username: string;
+  bio: string | null;
+}
+
+export function updateProfile(userId: string, fields: ProfileEdit) {
+  return supabase
+    .from("profiles")
+    .update({
+      display_name: fields.displayName,
+      username: fields.username,
+      bio: fields.bio,
+    })
     .eq("id", userId);
 }

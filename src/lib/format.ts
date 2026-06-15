@@ -55,7 +55,7 @@ export function relativeTime(iso: string): string {
 }
 
 /** A YYYY-MM-DD day string for a moment, in a given IANA timezone. */
-function dayInTimeZone(date: Date, timeZone: string): string {
+export function dayInTimeZone(date: Date, timeZone: string): string {
   // en-CA renders as YYYY-MM-DD — matches a Postgres `date` column's text form.
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -83,4 +83,40 @@ export function isStreakAlive(
     timeZone,
   );
   return lastSessionDate === today || lastSessionDate === yesterday;
+}
+
+export interface StreakWeekDay {
+  /** Weekday initial in the user's timezone (e.g. "M"). */
+  letter: string;
+  state: "done" | "today" | "pending";
+}
+
+/**
+ * The 7-cell streak strip ending today (oldest → today), each cell labelled with
+ * its weekday initial in the user's timezone. `activeDays` is the set of local
+ * day-strings (YYYY-MM-DD, user tz) on which a session was posted. The final cell
+ * is always "today"; earlier cells are "done" when a session landed that day,
+ * else "pending". Powers `StreakCard` (Step 11) — mirrors the mockup's strip.
+ */
+export function buildStreakWeek(
+  activeDays: Set<string>,
+  timeZone: string,
+): StreakWeekDay[] {
+  const now = new Date();
+  const today = dayInTimeZone(now, timeZone);
+  const cells: StreakWeekDay[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const dayStr = dayInTimeZone(d, timeZone);
+    const letter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "narrow",
+    }).format(d);
+    cells.push({
+      letter,
+      state:
+        dayStr === today ? "today" : activeDays.has(dayStr) ? "done" : "pending",
+    });
+  }
+  return cells;
 }
