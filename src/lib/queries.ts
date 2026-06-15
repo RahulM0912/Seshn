@@ -177,6 +177,57 @@ export async function getFollowers(userId: string): Promise<Profile[]> {
   return ids.map((id) => byId.get(id)).filter((p): p is Profile => p != null);
 }
 
+/**
+ * Profile search for Explore (Step 12 — "people to follow"). Case-insensitive
+ * substring match on display name OR @username, excluding the viewer's own row.
+ * Profiles are world-readable under RLS, so any signed-in user can discover anyone.
+ *
+ * The raw query is sanitized before it's spliced into the PostgREST `or(...)`
+ * filter: commas/parens would change the filter's meaning and `%`/`_` are `ilike`
+ * wildcards, so all of them are collapsed to spaces. This isn't SQL injection
+ * (PostgREST parses the filter, not Postgres), but it keeps the match literal.
+ */
+export async function searchProfiles(
+  viewerId: string,
+  query: string,
+  limit = 25,
+): Promise<Profile[]> {
+  const safe = query.replace(/[,()%_\\*]/g, " ").trim();
+  if (!safe) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .neq("id", viewerId)
+    .or(`display_name.ilike.%${safe}%,username.ilike.%${safe}%`)
+    .order("username", { ascending: true })
+    .limit(limit);
+  if (error) console.error("searchProfiles:", error.message);
+  return data ?? [];
+}
+
+/**
+ * The default Explore list when there's no search: the member directory — everyone
+ * except the viewer, newest first. Followed and not-yet-followed alike are returned
+ * (each row carries its own follow state), so the list never looks empty on a small
+ * instance and matches what `searchProfiles` returns. RLS-safe (profiles are public).
+ */
+export async function getDiscoverProfiles(
+  viewerId: string,
+  limit = 50,
+): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .neq("id", viewerId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) console.error("getDiscoverProfiles:", error.message);
+  return data ?? [];
+}
+
 /** Does `followerId` currently follow `followingId`? (RLS allows reading any edge.) */
 export async function isFollowing(
   followerId: string,
