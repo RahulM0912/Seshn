@@ -15,24 +15,50 @@
 // decrements anything. We hydrate from localStorage in an effect (not at store
 // creation) so the server and the first client paint both render the idle
 // default, avoiding a hydration mismatch.
+//
+// Full pomodoro model: focus → short break, repeating, with a *long* break after
+// every `longBreakInterval` pomodoros. `sessionGoal` is the separate target you
+// aim for (the dot count). Durations + goal + interval are user-configured and
+// locked while a session runs; sound preferences can change anytime. All of it
+// persists in the same blob.
 
 import { useEffect } from "react";
 import { create } from "zustand";
 
 export type TimerPhase = "idle" | "focus" | "break";
 
-export const SESSION_GOAL = 8; // pomodoro dots shown in the timer card
 export const DEFAULT_FOCUS_MS = 25 * 60 * 1000;
-export const DEFAULT_BREAK_MS = 5 * 60 * 1000;
+export const DEFAULT_SHORT_BREAK_MS = 5 * 60 * 1000;
+export const DEFAULT_LONG_BREAK_MS = 15 * 60 * 1000;
+export const DEFAULT_SESSION_GOAL = 8; // pomodoros you aim for (= dot count)
+export const DEFAULT_LONG_BREAK_INTERVAL = 4; // long break after every N pomodoros
+export const DEFAULT_VOLUME = 0.5;
 
-// Selectable focus / break lengths (minutes). Durations can only be changed
-// while idle — changing mid-session is disallowed, which keeps every completed
-// pomodoro in a session the same length (so `pomodorosCompleted * focusMs` for
-// total focus time stays correct).
-export const FOCUS_PRESETS = [15, 25, 50] as const;
-export const BREAK_PRESETS = [5, 10, 15] as const;
+// Bounds for the settings modal — keep custom values sane (and within the
+// sessions.focus_minutes 1..1440 CHECK once posted).
+export const LIMITS = {
+  focusMin: { min: 1, max: 120 },
+  shortBreakMin: { min: 1, max: 60 },
+  longBreakMin: { min: 1, max: 60 },
+  sessionGoal: { min: 1, max: 16 },
+  longBreakInterval: { min: 1, max: 12 },
+} as const;
 
 const STORAGE_KEY = "seshn:timer:v1";
+
+export interface TimerConfig {
+  focusMin: number;
+  shortBreakMin: number;
+  longBreakMin: number;
+  sessionGoal: number; // pomodoros aimed for (dot count)
+  longBreakInterval: number; // long break after every N pomodoros
+}
+
+export interface SoundConfig {
+  soundEnabled: boolean; // chime at each phase boundary
+  tickingEnabled: boolean; // soft tick each second during focus
+  volume: number; // 0..1
+}
 
 interface PersistedState {
   phase: TimerPhase;
@@ -42,7 +68,13 @@ interface PersistedState {
   pomodorosCompleted: number; // filled dots this session
   sessionStartedAt: number | null; // first focus start of the session
   focusMs: number; // chosen focus length
-  breakMs: number; // chosen break length
+  shortBreakMs: number; // chosen short break length
+  longBreakMs: number; // chosen long break length
+  sessionGoal: number; // pomodoros aimed for this session (dot count)
+  longBreakInterval: number; // long break after every N pomodoros
+  soundEnabled: boolean;
+  tickingEnabled: boolean;
+  volume: number;
 }
 
 const INITIAL: PersistedState = {
@@ -53,7 +85,13 @@ const INITIAL: PersistedState = {
   pomodorosCompleted: 0,
   sessionStartedAt: null,
   focusMs: DEFAULT_FOCUS_MS,
-  breakMs: DEFAULT_BREAK_MS,
+  shortBreakMs: DEFAULT_SHORT_BREAK_MS,
+  longBreakMs: DEFAULT_LONG_BREAK_MS,
+  sessionGoal: DEFAULT_SESSION_GOAL,
+  longBreakInterval: DEFAULT_LONG_BREAK_INTERVAL,
+  soundEnabled: true,
+  tickingEnabled: false,
+  volume: DEFAULT_VOLUME,
 };
 
 interface TimerState extends PersistedState {
@@ -62,16 +100,42 @@ interface TimerState extends PersistedState {
   start: () => void;
   pause: () => void;
   resume: () => void;
+  restart: () => void;
+  skipBreak: () => void;
   reset: () => void;
-  setDurations: (focusMin: number, breakMin: number) => void;
+  setConfig: (config: TimerConfig) => void;
+  setSound: (sound: Partial<SoundConfig>) => void;
   hydrate: () => void;
   tick: () => void;
 }
 
+// A break is the *long* one when the pomodoro that just finished completed a full
+// interval. `pomodorosCompleted` is incremented exactly when we enter the break,
+// so `% longBreakInterval === 0` (and > 0) deterministically marks the long break
+// — no extra stored flag needed, which keeps it correct across refresh / sleep.
+function isLongBreakState(
+  s: Pick<PersistedState, "phase" | "pomodorosCompleted" | "longBreakInterval">,
+): boolean {
+  return (
+    s.phase === "break" &&
+    s.pomodorosCompleted > 0 &&
+    s.pomodorosCompleted % s.longBreakInterval === 0
+  );
+}
+
 function phaseDurationMs(
-  s: Pick<PersistedState, "phase" | "focusMs" | "breakMs">,
+  s: Pick<
+    PersistedState,
+    | "phase"
+    | "focusMs"
+    | "shortBreakMs"
+    | "longBreakMs"
+    | "pomodorosCompleted"
+    | "longBreakInterval"
+  >,
 ): number {
-  return s.phase === "break" ? s.breakMs : s.focusMs;
+  if (s.phase !== "break") return s.focusMs;
+  return isLongBreakState(s) ? s.longBreakMs : s.shortBreakMs;
 }
 
 function isRunning(s: Pick<PersistedState, "phase" | "pausedAt">): boolean {
@@ -87,7 +151,13 @@ function persistedOf(s: PersistedState): PersistedState {
     pomodorosCompleted: s.pomodorosCompleted,
     sessionStartedAt: s.sessionStartedAt,
     focusMs: s.focusMs,
-    breakMs: s.breakMs,
+    shortBreakMs: s.shortBreakMs,
+    longBreakMs: s.longBreakMs,
+    sessionGoal: s.sessionGoal,
+    longBreakInterval: s.longBreakInterval,
+    soundEnabled: s.soundEnabled,
+    tickingEnabled: s.tickingEnabled,
+    volume: s.volume,
   };
 }
 
@@ -97,6 +167,11 @@ function persist(s: PersistedState): void {
   } catch {
     // storage unavailable (private mode etc.) — timer still works in-memory
   }
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.round(value)));
 }
 
 // Advance past any phase whose time has fully elapsed. We pause at each boundary
@@ -144,7 +219,22 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        loaded = { ...INITIAL, ...(JSON.parse(raw) as Partial<PersistedState>) };
+        const parsed = JSON.parse(raw) as Partial<PersistedState> & {
+          breakMs?: number; // legacy single break length (pre long-break)
+          roundLength?: number; // legacy combined cadence+goal (pre split)
+        };
+        if (parsed.shortBreakMs == null && typeof parsed.breakMs === "number") {
+          parsed.shortBreakMs = parsed.breakMs;
+        }
+        // The old `roundLength` did double duty; map it to the long-break cadence
+        // (the more meaningful half) and leave the session goal at its default.
+        if (
+          parsed.longBreakInterval == null &&
+          typeof parsed.roundLength === "number"
+        ) {
+          parsed.longBreakInterval = parsed.roundLength;
+        }
+        loaded = { ...INITIAL, ...parsed };
       }
     } catch {
       loaded = INITIAL;
@@ -196,28 +286,107 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     ensureTicking();
   },
 
+  restart() {
+    // Restart only the *current* pomodoro/break: its clock goes back to full,
+    // but the session itself (completed pomodoros, session start, phase) is kept.
+    // Preserves the running/paused status so a restart-while-paused stays paused
+    // at full. The full clear-to-idle is `reset()` (used after posting).
+    const s = get();
+    if (s.phase === "idle") return; // nothing underway to restart
+    const t = Date.now();
+    const next: PersistedState = {
+      ...persistedOf(s),
+      phaseStartedAt: t,
+      accumulatedPauseMs: 0,
+      pausedAt: s.pausedAt !== null ? t : null,
+    };
+    persist(next);
+    set({ ...next, now: t });
+    ensureTicking();
+  },
+
+  skipBreak() {
+    // Skip the rest of a break and jump straight into the next focus block,
+    // running immediately. Keeps the session (completed pomodoros, session start);
+    // only meaningful during a break.
+    const s = get();
+    if (s.phase !== "break") return;
+    const t = Date.now();
+    const next: PersistedState = {
+      ...persistedOf(s),
+      phase: "focus",
+      phaseStartedAt: t,
+      pausedAt: null,
+      accumulatedPauseMs: 0,
+    };
+    persist(next);
+    set({ ...next, now: t });
+    ensureTicking();
+  },
+
   reset() {
     const s = get();
-    // Keep the chosen durations across a reset; everything else goes idle.
+    // Keep all config (durations, goal, cadence, sound) across a reset; only the
+    // running session goes idle.
     const next: PersistedState = {
       ...INITIAL,
       focusMs: s.focusMs,
-      breakMs: s.breakMs,
+      shortBreakMs: s.shortBreakMs,
+      longBreakMs: s.longBreakMs,
+      sessionGoal: s.sessionGoal,
+      longBreakInterval: s.longBreakInterval,
+      soundEnabled: s.soundEnabled,
+      tickingEnabled: s.tickingEnabled,
+      volume: s.volume,
     };
     persist(next);
     set({ ...next, now: Date.now() });
     ensureTicking();
   },
 
-  setDurations(focusMin, breakMin) {
-    if (get().phase !== "idle") return; // locked once a session is underway
+  setConfig(config) {
+    if (get().phase !== "idle") return; // durations locked once a session is underway
+    const s = get();
     const next: PersistedState = {
       ...INITIAL,
-      focusMs: focusMin * 60 * 1000,
-      breakMs: breakMin * 60 * 1000,
+      focusMs: clamp(config.focusMin, LIMITS.focusMin.min, LIMITS.focusMin.max) * 60000,
+      shortBreakMs:
+        clamp(config.shortBreakMin, LIMITS.shortBreakMin.min, LIMITS.shortBreakMin.max) *
+        60000,
+      longBreakMs:
+        clamp(config.longBreakMin, LIMITS.longBreakMin.min, LIMITS.longBreakMin.max) *
+        60000,
+      sessionGoal: clamp(
+        config.sessionGoal,
+        LIMITS.sessionGoal.min,
+        LIMITS.sessionGoal.max,
+      ),
+      longBreakInterval: clamp(
+        config.longBreakInterval,
+        LIMITS.longBreakInterval.min,
+        LIMITS.longBreakInterval.max,
+      ),
+      // sound prefs are independent of a reset
+      soundEnabled: s.soundEnabled,
+      tickingEnabled: s.tickingEnabled,
+      volume: s.volume,
     };
     persist(next);
     set({ ...next, now: Date.now() });
+  },
+
+  setSound(sound) {
+    const s = get();
+    const next: PersistedState = {
+      ...persistedOf(s),
+      ...(sound.soundEnabled != null ? { soundEnabled: sound.soundEnabled } : {}),
+      ...(sound.tickingEnabled != null ? { tickingEnabled: sound.tickingEnabled } : {}),
+      ...(sound.volume != null
+        ? { volume: Math.min(1, Math.max(0, sound.volume)) }
+        : {}),
+    };
+    persist(next);
+    set(next);
   },
 
   tick() {
@@ -254,7 +423,9 @@ type DerivableState = Pick<
   | "accumulatedPauseMs"
   | "pomodorosCompleted"
   | "focusMs"
-  | "breakMs"
+  | "shortBreakMs"
+  | "longBreakMs"
+  | "longBreakInterval"
 > & { now: number };
 
 function deriveRemaining(s: DerivableState): {
@@ -294,6 +465,7 @@ function formatClock(ms: number): string {
 export interface PendingSession {
   focusMinutes: number;
   pomodorosCompleted: number;
+  pomodorosPlanned: number;
   startedAt: string; // ISO
   endedAt: string; // ISO
 }
@@ -307,6 +479,7 @@ export function getPendingSession(): PendingSession | null {
     // sessions.focus_minutes is CHECK 1..1440 — floor a sub-minute session to 1.
     focusMinutes: Math.max(1, focusMinutes),
     pomodorosCompleted: s.pomodorosCompleted,
+    pomodorosPlanned: s.sessionGoal,
     startedAt: new Date(s.sessionStartedAt).toISOString(),
     endedAt: new Date(now).toISOString(),
   };
@@ -315,19 +488,30 @@ export function getPendingSession(): PendingSession | null {
 export interface TimerView {
   phase: TimerPhase;
   running: boolean;
+  isLongBreak: boolean;
   remainingMs: number;
   totalMs: number;
   progress: number; // 0..1
   pomodorosCompleted: number;
   focusMinutes: number;
   clock: string; // "mm:ss"
-  focusMin: number; // current durations (minutes) for the settings UI
-  breakMin: number;
+  // current config (for the settings modal)
+  focusMin: number;
+  shortBreakMin: number;
+  longBreakMin: number;
+  sessionGoal: number;
+  longBreakInterval: number;
+  soundEnabled: boolean;
+  tickingEnabled: boolean;
+  volume: number;
   start: () => void;
   pause: () => void;
   resume: () => void;
+  restart: () => void;
+  skipBreak: () => void;
   reset: () => void;
-  setDurations: (focusMin: number, breakMin: number) => void;
+  setConfig: (config: TimerConfig) => void;
+  setSound: (sound: Partial<SoundConfig>) => void;
 }
 
 export function useTimer(): TimerView {
@@ -349,6 +533,7 @@ export function useTimer(): TimerView {
   return {
     phase: s.phase,
     running: isRunning(s),
+    isLongBreak: isLongBreakState(s),
     remainingMs,
     totalMs,
     progress: totalMs > 0 ? 1 - remainingMs / totalMs : 0,
@@ -356,11 +541,20 @@ export function useTimer(): TimerView {
     focusMinutes: deriveFocusMinutes(s),
     clock: formatClock(remainingMs),
     focusMin: Math.round(s.focusMs / 60000),
-    breakMin: Math.round(s.breakMs / 60000),
+    shortBreakMin: Math.round(s.shortBreakMs / 60000),
+    longBreakMin: Math.round(s.longBreakMs / 60000),
+    sessionGoal: s.sessionGoal,
+    longBreakInterval: s.longBreakInterval,
+    soundEnabled: s.soundEnabled,
+    tickingEnabled: s.tickingEnabled,
+    volume: s.volume,
     start: s.start,
     pause: s.pause,
     resume: s.resume,
+    restart: s.restart,
+    skipBreak: s.skipBreak,
     reset: s.reset,
-    setDurations: s.setDurations,
+    setConfig: s.setConfig,
+    setSound: s.setSound,
   };
 }

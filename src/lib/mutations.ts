@@ -41,6 +41,39 @@ export function postSession(input: PostSessionInput) {
   return supabase.from("sessions").insert(payload);
 }
 
+// Edit a posted session's text/sharing fields (Step 14). RLS scopes the UPDATE to
+// the owner. Deliberately limited to subject/caption/visibility — the focus stats
+// are a factual record of what happened and stay immutable. Counters and timing
+// are never touched here.
+export interface SessionEdit {
+  subject: string | null;
+  caption: string | null;
+  visibility: Visibility;
+}
+
+export function updateSession(sessionId: string, fields: SessionEdit) {
+  return supabase
+    .from("sessions")
+    .update({
+      subject: fields.subject,
+      caption: fields.caption,
+      visibility: fields.visibility,
+    })
+    .eq("id", sessionId);
+}
+
+// Delete a posted session (Step 14). SOFT delete — set `deleted_at`, and RLS hides
+// the row from every future read (feed, profile, permalink, daily totals all filter
+// `deleted_at is null`). Mirrors the comment-delete pattern; the owner-only RLS
+// update policy already permits this. Its likes/comments are left in place but
+// become unreachable along with the hidden session.
+export function softDeleteSession(sessionId: string) {
+  return supabase
+    .from("sessions")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", sessionId);
+}
+
 // Follow / unfollow (Slice 6 / Step 7). RLS pins `follower_id` to the caller, so
 // you can only create/remove your OWN outgoing edge. On follow, a `23505`
 // (unique_violation) means the edge already exists — callers treat that as

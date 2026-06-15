@@ -1,22 +1,46 @@
 "use client";
 
-import { useState } from "react";
-import { Pause, Play, RefreshCw, Settings, Square } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Pause, Play, RefreshCw, Settings, SkipForward, Square } from "lucide-react";
 import {
-  BREAK_PRESETS,
-  FOCUS_PRESETS,
   getPendingSession,
-  SESSION_GOAL,
   useTimer,
-  type TimerPhase,
+  type TimerView,
 } from "@/lib/timer-store";
+import { playAlarm, playTick, unlockAudio } from "@/lib/timer-sounds";
 import { useSessionPostStore } from "@/lib/session-post-store";
+import TimerSettingsModal from "@/components/TimerSettingsModal";
 
-const PHASE_LABEL: Record<TimerPhase, string> = {
-  idle: "Ready",
-  focus: "Focus",
-  break: "Break",
-};
+function phaseLabel(t: TimerView): string {
+  if (t.phase === "idle") return "Ready";
+  if (t.phase === "focus") return "Focus";
+  return t.isLongBreak ? "Long break" : "Break";
+}
+
+// Side-effect hook: play the boundary chime when the phase flips (focus↔break,
+// including when a break ends) and a soft tick each second while the timer runs
+// — focus AND break. Both gated on the user's prefs. The phase ref starts null
+// so hydration / first paint never fires a chime.
+function useTimerSounds(t: TimerView): void {
+  const prevPhase = useRef<TimerView["phase"] | null>(null);
+
+  useEffect(() => {
+    const prev = prevPhase.current;
+    prevPhase.current = t.phase;
+    // Any genuine phase change between two non-idle phases rings (focus→break
+    // and break→focus). Not idle→focus (start) and not the hydrate/refresh paint.
+    if (prev && prev !== "idle" && prev !== t.phase && t.phase !== "idle") {
+      if (t.soundEnabled) playAlarm(t.volume);
+    }
+  }, [t.phase, t.soundEnabled, t.volume]);
+
+  useEffect(() => {
+    // Tick while the clock is actively running — during focus or break.
+    if (!(t.tickingEnabled && t.running && t.phase !== "idle")) return;
+    const id = setInterval(() => playTick(t.volume), 1000);
+    return () => clearInterval(id);
+  }, [t.tickingEnabled, t.running, t.phase, t.volume]);
+}
 
 // The Pomodoro timer card. Lives in the app-shell sidebar (and is the first
 // thing shown on mobile). All state/persistence is in `@/lib/timer-store`; this
@@ -26,8 +50,10 @@ export default function TimerCard() {
   const t = useTimer();
   const openModal = useSessionPostStore((s) => s.openModal);
   const [showSettings, setShowSettings] = useState(false);
+  useTimerSounds(t);
 
   const onPrimary = () => {
+    unlockAudio(); // unlock the AudioContext on this user gesture
     if (t.running) t.pause();
     else if (t.phase === "idle") t.start();
     else t.resume();
@@ -42,56 +68,44 @@ export default function TimerCard() {
 
   const primaryLabel = t.running ? "Pause" : t.phase === "idle" ? "Start" : "Resume";
   const PrimaryIcon = t.running ? Pause : Play;
-  const filledDots = Math.min(t.pomodorosCompleted, SESSION_GOAL);
+  // Dots = progress toward the session goal (the long-break cadence is separate).
+  const goal = t.sessionGoal;
+  const filledDots = Math.min(t.pomodorosCompleted, goal);
   const percent = Math.round(t.progress * 100);
   const idle = t.phase === "idle";
+  const onBreak = t.phase === "break";
+  const label = phaseLabel(t);
 
   return (
     <div className="rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-4">
       <div className="mb-3.5 flex items-center justify-between">
         <span className="text-[13px] font-medium text-white">Your session</span>
         <div className="flex items-center gap-1.5">
-          {/* Durations can only change while idle. */}
-          {idle && (
-            <button
-              type="button"
-              onClick={() => setShowSettings((v) => !v)}
-              aria-label="Timer settings"
-              aria-expanded={showSettings}
-              className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded-full transition-colors hover:text-white ${
-                showSettings ? "text-white" : "text-[#888888]"
-              }`}
-            >
-              <Settings size={14} aria-hidden />
-            </button>
-          )}
+          {/* Always available so sound can be tweaked mid-session; the modal
+              locks the duration fields while a session is running. */}
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            aria-label="Timer settings"
+            aria-haspopup="dialog"
+            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
+          >
+            <Settings size={14} aria-hidden />
+          </button>
           <span className="rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2 py-[3px] text-[10px] text-[#22C55E]">
-            {PHASE_LABEL[t.phase]}
+            {label}
           </span>
         </div>
       </div>
 
-      {idle && showSettings && (
-        <div className="mb-3.5 flex flex-col gap-2.5 rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] p-3">
-          <PresetRow
-            label="Focus"
-            values={FOCUS_PRESETS}
-            selected={t.focusMin}
-            onSelect={(min) => t.setDurations(min, t.breakMin)}
-          />
-          <PresetRow
-            label="Break"
-            values={BREAK_PRESETS}
-            selected={t.breakMin}
-            onSelect={(min) => t.setDurations(t.focusMin, min)}
-          />
-        </div>
+      {showSettings && (
+        <TimerSettingsModal t={t} onClose={() => setShowSettings(false)} />
       )}
 
       <div
         role="timer"
         aria-live="off"
-        aria-label={`${PHASE_LABEL[t.phase]} — ${t.clock} remaining`}
+        aria-label={`${label} — ${t.clock} remaining`}
         className="mt-1 mb-3 text-center text-[42px] font-bold leading-none tracking-[-2px] text-white tabular-nums"
       >
         {t.clock}
@@ -110,8 +124,8 @@ export default function TimerCard() {
         />
       </div>
 
-      <div className="mb-3.5 flex justify-center gap-1.5">
-        {Array.from({ length: SESSION_GOAL }).map((_, i) => (
+      <div className="mb-3.5 flex flex-wrap justify-center gap-1.5">
+        {Array.from({ length: goal }).map((_, i) => (
           <span
             key={i}
             aria-hidden
@@ -133,16 +147,30 @@ export default function TimerCard() {
         </button>
         <button
           type="button"
-          onClick={t.reset}
+          onClick={t.restart}
           disabled={idle}
-          aria-label="Reset timer"
+          aria-label="Restart current timer"
+          title="Restart the current timer (keeps your session)"
           className="flex min-h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RefreshCw size={15} aria-hidden />
         </button>
       </div>
 
-      {/* End the session and post it — only meaningful once one's underway. */}
+      {/* Skip the break straight into the next focus block. */}
+      {onBreak && (
+        <button
+          type="button"
+          onClick={t.skipBreak}
+          className="mt-2 flex min-h-[38px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[12px] font-medium text-[#888888] transition-colors hover:text-white"
+        >
+          <SkipForward size={13} aria-hidden />
+          Skip break
+        </button>
+      )}
+
+      {/* End the session — opens the wrap-up where you post or discard it. Only
+          meaningful once one's underway. */}
       {!idle && (
         <button
           type="button"
@@ -150,7 +178,7 @@ export default function TimerCard() {
           className="mt-2 flex min-h-[38px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] text-[12px] font-medium text-[#22C55E] transition-colors hover:bg-[#143d1d]"
         >
           <Square size={13} aria-hidden />
-          End session &amp; post
+          End session
         </button>
       )}
 
@@ -176,44 +204,6 @@ export default function TimerCard() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function PresetRow({
-  label,
-  values,
-  selected,
-  onSelect,
-}: {
-  label: string;
-  values: readonly number[];
-  selected: number;
-  onSelect: (min: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-[11px] text-[#888888]">{label}</span>
-      <div className="flex gap-1.5">
-        {values.map((min) => {
-          const active = min === selected;
-          return (
-            <button
-              key={min}
-              type="button"
-              onClick={() => onSelect(min)}
-              aria-pressed={active}
-              className={`min-w-[40px] cursor-pointer rounded-[6px] border-[0.5px] px-2 py-1 text-[11px] tabular-nums transition-colors ${
-                active
-                  ? "border-[#1A4D22] bg-[#0F2A15] text-[#22C55E]"
-                  : "border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] hover:text-white"
-              }`}
-            >
-              {min}m
-            </button>
-          );
-        })}
       </div>
     </div>
   );

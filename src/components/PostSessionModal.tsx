@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Lock, Users, X } from "lucide-react";
 import { postSession } from "@/lib/mutations";
-import {
-  SESSION_GOAL,
-  useTimerStore,
-  type PendingSession,
-} from "@/lib/timer-store";
+import { useTimerStore, type PendingSession } from "@/lib/timer-store";
 import { useSessionPostStore } from "@/lib/session-post-store";
 
 type Visibility = "public" | "followers" | "private";
@@ -60,6 +56,7 @@ function PostSessionForm({
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   // Escape closes (while not submitting); lock body scroll while open.
   useEffect(() => {
@@ -86,7 +83,7 @@ function PostSessionForm({
       endedAt: pending.endedAt,
       focusMinutes: pending.focusMinutes,
       pomodorosCompleted: pending.pomodorosCompleted,
-      pomodorosPlanned: SESSION_GOAL,
+      pomodorosPlanned: pending.pomodorosPlanned,
       subject: subject.trim() || null,
       caption: caption.trim() || null,
       visibility,
@@ -101,6 +98,18 @@ function PostSessionForm({
     resetTimer(); // clear the timer back to idle now that it's posted
     close();
     router.refresh(); // let the feed/profile pick up the new row (built later)
+  }
+
+  // Throw the whole session away without posting. Destructive (the focus time is
+  // gone), so it's a two-tap confirm. The X / Escape / backdrop are the non-
+  // destructive way out — they keep the session (paused) so you can resume.
+  function handleDiscard() {
+    if (!confirmDiscard) {
+      setConfirmDiscard(true);
+      return;
+    }
+    resetTimer();
+    close();
   }
 
   return (
@@ -128,7 +137,7 @@ function PostSessionForm({
               <span className="text-[#22C55E]">
                 {formatFocus(pending.focusMinutes)}
               </span>{" "}
-              focused · {pending.pomodorosCompleted}/{SESSION_GOAL} pomodoros
+              focused · {pending.pomodorosCompleted}/{pending.pomodorosPlanned} pomodoros
             </p>
           </div>
           <button
@@ -227,11 +236,18 @@ function PostSessionForm({
         <div className="mt-1 flex gap-2">
           <button
             type="button"
-            onClick={close}
+            onClick={handleDiscard}
             disabled={submitting}
-            className="min-h-[42px] flex-1 cursor-pointer rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[13px] font-medium text-[#888888] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={
+              confirmDiscard ? "Confirm discard session" : "Discard session"
+            }
+            className={`min-h-[42px] flex-1 cursor-pointer rounded-[8px] border-[0.5px] text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              confirmDiscard
+                ? "border-[#7F1D1D] bg-[#2A1010] text-[#F87171] hover:bg-[#3A1414]"
+                : "border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] hover:text-white"
+            }`}
           >
-            Discard
+            {confirmDiscard ? "Tap to discard" : "Discard session"}
           </button>
           <button
             type="button"
@@ -242,6 +258,19 @@ function PostSessionForm({
             {submitting ? "Posting…" : "Post session"}
           </button>
         </div>
+
+        {confirmDiscard && (
+          <p className="-mt-2 text-center text-[11px] text-[#888888]">
+            This session won&apos;t be saved.{" "}
+            <button
+              type="button"
+              onClick={() => setConfirmDiscard(false)}
+              className="cursor-pointer text-[#22C55E] hover:underline"
+            >
+              Keep it
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );
