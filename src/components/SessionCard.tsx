@@ -2,6 +2,7 @@ import { CircleDot, Flame, MessageCircle } from "lucide-react";
 import type { SessionWithProfile } from "@/lib/database.types";
 import { avatarColor, formatFocusTime, initials, relativeTime } from "@/lib/format";
 import SessionCardFooter from "@/components/SessionCardFooter";
+import SessionOwnerMenu from "@/components/SessionOwnerMenu";
 import VisibilityBadge from "@/components/VisibilityBadge";
 
 // One feed/profile post. Presentational + data-driven (the landing page keeps its
@@ -52,6 +53,10 @@ export default function SessionCard({
             @{author.username} · {relativeTime(session.created_at)}
           </div>
         </div>
+
+        {/* Owner-only edit/delete — shows wherever this card renders (feed,
+            profile, permalink) for the author's own posts. */}
+        {viewerId === author.id && <SessionOwnerMenu session={session} />}
       </header>
 
       {/* Pomodoro dots */}

@@ -15,7 +15,17 @@ export default function FeedTabs({
   ] as const;
 
   return (
-    <div className="flex gap-1" role="tablist" aria-label="Feed">
+    // Pinned to the top of the scrolling column so the tabs stay reachable as the
+    // feed / people list scrolls under them. The negative margins + matching
+    // padding bleed the solid background across the page's `p-4` so nothing shows
+    // through behind the pills. `pt-4` keeps breathing room below the navbar once
+    // stuck; `-mt-4` cancels the page's top padding so the at-rest layout is
+    // unchanged.
+    <div
+      className="sticky top-0 z-10 -mx-4 -mt-4 flex gap-1 bg-[#0A0A0A] px-4 pt-4 pb-3"
+      role="tablist"
+      aria-label="Feed"
+    >
       {tabs.map((tab) => {
         const isActive = tab.key === active;
         return (

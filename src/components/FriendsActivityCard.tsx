@@ -27,7 +27,11 @@ export default async function FriendsActivityCard({
           put in today.
         </p>
       ) : (
-        <div className="mt-3 flex flex-col gap-1">
+        // `getFriendsActivity` currently caps this list (top friends), so it
+        // won't overflow today — but bound the height and scroll so it stays
+        // tidy if that cap is ever raised. `-mr-1 pr-1` keeps the scrollbar off
+        // the row content.
+        <div className="mt-3 -mr-1 flex max-h-[320px] flex-col gap-1 overflow-y-auto pr-1">
           {friends.map(({ profile, minutesToday, postedToday }) => {
             const av = avatarColor(profile.id);
             return (
