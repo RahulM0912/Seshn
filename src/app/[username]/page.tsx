@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 import { Flame } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import SessionCard from "@/components/SessionCard";
+import FocusHeatmap from "@/components/FocusHeatmap";
 import FollowButton from "@/components/FollowButton";
 import {
   getDailyFocusMinutes,
+  getFocusHeatmap,
   getFollowCounts,
   getLikedSessionIds,
   getProfileByUsername,
@@ -62,13 +64,15 @@ export default async function ProfilePage({
   const profile = await getProfileByUsername(username);
   if (!profile) notFound();
 
-  const [sessions, dailyMinutes, follows, streak, viewer] = await Promise.all([
-    getUserSessions(profile.id),
-    getDailyFocusMinutes(profile.id),
-    getFollowCounts(profile.id),
-    getStreak(profile.id),
-    getViewer(),
-  ]);
+  const [sessions, dailyMinutes, follows, streak, heatmap, viewer] =
+    await Promise.all([
+      getUserSessions(profile.id),
+      getDailyFocusMinutes(profile.id),
+      getFollowCounts(profile.id),
+      getStreak(profile.id),
+      getFocusHeatmap(profile.id, profile.timezone),
+      getViewer(),
+    ]);
 
   const av = avatarColor(profile.id);
   const streakDisplay =
@@ -150,6 +154,9 @@ export default async function ProfilePage({
           <Stat value={follows.following} label="Following" />
         </div>
       </section>
+
+      {/* Focus activity heatmap */}
+      <FocusHeatmap minutesByDay={heatmap} timeZone={profile.timezone} />
 
       {/* Sessions */}
       <h2 className="mb-3 mt-6 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[#555555]">

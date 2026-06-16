@@ -85,6 +85,100 @@ export function isStreakAlive(
   return lastSessionDate === today || lastSessionDate === yesterday;
 }
 
+export interface HeatmapDay {
+  /** Local day-string (YYYY-MM-DD, user tz) this cell represents. */
+  date: string;
+  minutes: number;
+  /** 0 (none) → 4 (most) intensity bucket, drives the cell's green shade. */
+  level: 0 | 1 | 2 | 3 | 4;
+}
+
+export interface HeatmapView {
+  /** 53 columns (weeks) × 7 rows (Sun→Sat). Cells past today are null. */
+  weeks: (HeatmapDay | null)[][];
+  /** Short month name + the column it first appears in, for the top axis. */
+  monthLabels: { label: string; col: number }[];
+  totalMinutes: number;
+  activeDays: number;
+}
+
+const HEATMAP_WEEKS = 53;
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+};
+
+/** Minutes → 0–4 intensity. Half-open buckets: 0 / <30 / <60 / <120 / 120+. */
+function heatLevel(minutes: number): 0 | 1 | 2 | 3 | 4 {
+  if (minutes <= 0) return 0;
+  if (minutes < 30) return 1;
+  if (minutes < 60) return 2;
+  if (minutes < 120) return 3;
+  return 4;
+}
+
+/**
+ * The GitHub-style focus heatmap grid (Step 15): 53 columns (weeks) × 7 rows
+ * (Sun→Sat), ending on today in the user's timezone. `minutesByDay` maps a local
+ * day-string (YYYY-MM-DD, user tz) to that day's focus minutes; each cell takes a
+ * 0–4 intensity from it. Cells beyond today (the current week's tail) are null.
+ * Month labels mark the column where each new month first appears. Day stepping
+ * mirrors `buildStreakWeek` (±24h from now, re-bucketed per tz).
+ */
+export function buildFocusHeatmap(
+  minutesByDay: Record<string, number>,
+  timeZone: string,
+): HeatmapView {
+  const now = new Date();
+  const todayWeekday =
+    WEEKDAY_INDEX[
+      new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(now)
+    ] ?? 0;
+  // today sits in the last column at its weekday row; column 0 row 0 is a Sunday.
+  const todayIndex = (HEATMAP_WEEKS - 1) * 7 + todayWeekday;
+
+  const weeks: (HeatmapDay | null)[][] = [];
+  const monthLabels: { label: string; col: number }[] = [];
+  let totalMinutes = 0;
+  let activeDays = 0;
+  let lastMonth = -1;
+
+  for (let col = 0; col < HEATMAP_WEEKS; col++) {
+    const week: (HeatmapDay | null)[] = [];
+    for (let row = 0; row < 7; row++) {
+      const i = col * 7 + row;
+      if (i > todayIndex) {
+        week.push(null);
+        continue;
+      }
+      const date = new Date(now.getTime() + (i - todayIndex) * 86_400_000);
+      const day = dayInTimeZone(date, timeZone);
+      const minutes = minutesByDay[day] ?? 0;
+      if (minutes > 0) {
+        totalMinutes += minutes;
+        activeDays += 1;
+      }
+      week.push({ date: day, minutes, level: heatLevel(minutes) });
+    }
+    weeks.push(week);
+
+    // Label the column where a new month starts (keyed off its first real cell).
+    const firstCell = week.find((c): c is HeatmapDay => c !== null);
+    if (firstCell) {
+      const month = Number(firstCell.date.slice(5, 7)) - 1;
+      if (month !== lastMonth) {
+        monthLabels.push({ label: MONTHS[month], col });
+        lastMonth = month;
+      }
+    }
+  }
+
+  return { weeks, monthLabels, totalMinutes, activeDays };
+}
+
 export interface StreakWeekDay {
   /** Weekday initial in the user's timezone (e.g. "M"). */
   letter: string;
