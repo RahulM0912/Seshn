@@ -273,6 +273,40 @@ export async function getDailyFocusMinutes(userId: string): Promise<number> {
   return data ?? 0;
 }
 
+/**
+ * Focus minutes per local day over the last ~53 weeks, for the profile heatmap
+ * (Step 15). Buckets `focus_minutes` by the day each session *ended* in the
+ * profile's timezone — the same day boundary the streak and daily totals use, so
+ * a cell agrees with the streak strip. RLS-scoped: a visitor only counts sessions
+ * they're allowed to see, so a private day never leaks its minutes. Returns a
+ * plain `{ "YYYY-MM-DD": minutes }` map; `buildFocusHeatmap` lays out the grid.
+ */
+export async function getFocusHeatmap(
+  userId: string,
+  timezone: string,
+): Promise<Record<string, number>> {
+  const supabase = await createClient();
+  // 53 weeks + a week of slack so the oldest visible column is fully covered.
+  const since = new Date(
+    Date.now() - 372 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("focus_minutes, ended_at")
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .gte("ended_at", since);
+  if (error) console.error("getFocusHeatmap:", error.message);
+
+  const byDay: Record<string, number> = {};
+  for (const s of data ?? []) {
+    if (!s.ended_at) continue;
+    const day = dayInTimeZone(new Date(s.ended_at), timezone);
+    byDay[day] = (byDay[day] ?? 0) + (s.focus_minutes ?? 0);
+  }
+  return byDay;
+}
+
 export interface FollowCounts {
   followers: number;
   following: number;
