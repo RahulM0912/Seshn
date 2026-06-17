@@ -36,6 +36,20 @@ export function formatFocusTime(minutes: number): string {
   return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
+/**
+ * Verbose focus time for big summary stats: "45 min" under an hour, otherwise
+ * "2 hr" / "2 hr 15 min". Spelled-out units read cleaner at a glance than "2h 15m"
+ * for a headline total; the trailing "0 min" is dropped on the hour.
+ */
+export function formatFocusLong(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} hr`;
+  return `${h} hr ${m} min`;
+}
+
 /** ISO timestamp → "just now" / "2 hours ago" / "3 days ago" / "Jan 5". */
 export function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -94,7 +108,7 @@ export interface HeatmapDay {
 }
 
 export interface HeatmapView {
-  /** 53 columns (weeks) × 7 rows (Sun→Sat). Cells past today are null. */
+  /** Week columns × 7 rows (Sun→Sat). Out-of-year / future cells are null. */
   weeks: (HeatmapDay | null)[][];
   /** Short month name + the column it first appears in, for the top axis. */
   monthLabels: { label: string; col: number }[];
@@ -102,14 +116,11 @@ export interface HeatmapView {
   activeDays: number;
 }
 
-const HEATMAP_WEEKS = 53;
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
-const WEEKDAY_INDEX: Record<string, number> = {
-  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
-};
+const DAY_MS = 86_400_000;
 
 /** Minutes → 0–4 intensity. Half-open buckets: 0 / <30 / <60 / <120 / 120+. */
 function heatLevel(minutes: number): 0 | 1 | 2 | 3 | 4 {
@@ -120,25 +131,58 @@ function heatLevel(minutes: number): 0 | 1 | 2 | 3 | 4 {
   return 4;
 }
 
+/** A UTC-anchored calendar date → "YYYY-MM-DD" (its plain day label). */
+function utcDay(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Heatmap range: `"current"` = rolling last 12 months, or a specific year. */
+export type HeatmapRange = number | "current";
+
 /**
- * The GitHub-style focus heatmap grid (Step 15): 53 columns (weeks) × 7 rows
- * (Sun→Sat), ending on today in the user's timezone. `minutesByDay` maps a local
- * day-string (YYYY-MM-DD, user tz) to that day's focus minutes; each cell takes a
- * 0–4 intensity from it. Cells beyond today (the current week's tail) are null.
- * Month labels mark the column where each new month first appears. Day stepping
- * mirrors `buildStreakWeek` (±24h from now, re-bucketed per tz).
+ * The GitHub/LeetCode-style focus heatmap grid (Step 15): week columns × 7 rows
+ * (Sun→Sat). `minutesByDay` maps a local day-string (YYYY-MM-DD, user tz) to that
+ * day's focus minutes; each in-range cell takes a 0–4 intensity from it. Month
+ * labels mark the column where each new month first appears.
+ *
+ * Two ranges:
+ *  - `"current"` — a rolling 53 weeks ending on today's week (user tz), like the
+ *    default LeetCode view; the current week's future tail renders blank.
+ *  - a `year` — the full calendar year Jan→Dec, padded to whole weeks and always
+ *    framed (future days of the current year render empty, like GitHub's year view).
+ *
+ * Calendar dates are enumerated in UTC so they're stable across DST — a date is
+ * just a label here, matching the local day-strings the keys already use. Only
+ * "today" is timezone-aware, to place the rolling window and blank out the future.
  */
 export function buildFocusHeatmap(
   minutesByDay: Record<string, number>,
+  range: HeatmapRange,
   timeZone: string,
 ): HeatmapView {
-  const now = new Date();
-  const todayWeekday =
-    WEEKDAY_INDEX[
-      new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(now)
-    ] ?? 0;
-  // today sits in the last column at its weekday row; column 0 row 0 is a Sunday.
-  const todayIndex = (HEATMAP_WEEKS - 1) * 7 + todayWeekday;
+  const todayStr = dayInTimeZone(new Date(), timeZone);
+
+  let start: Date; // a Sunday (col 0, row 0), UTC-anchored
+  let cols: number;
+  let year: number | null; // null in rolling mode
+
+  if (range === "current") {
+    year = null;
+    const today = new Date(`${todayStr}T00:00:00Z`);
+    cols = 53;
+    start = new Date(today.getTime() - (52 * 7 + today.getUTCDay()) * DAY_MS);
+  } else {
+    year = range;
+    const jan1 = new Date(Date.UTC(range, 0, 1));
+    const dec31 = new Date(Date.UTC(range, 11, 31));
+    // Pad out to whole weeks: back to Sunday, forward to Saturday.
+    start = new Date(jan1.getTime() - jan1.getUTCDay() * DAY_MS);
+    const end = new Date(dec31.getTime() + (6 - dec31.getUTCDay()) * DAY_MS);
+    cols = Math.round((end.getTime() - start.getTime()) / DAY_MS + 1) / 7;
+  }
 
   const weeks: (HeatmapDay | null)[][] = [];
   const monthLabels: { label: string; col: number }[] = [];
@@ -146,16 +190,18 @@ export function buildFocusHeatmap(
   let activeDays = 0;
   let lastMonth = -1;
 
-  for (let col = 0; col < HEATMAP_WEEKS; col++) {
+  for (let col = 0; col < cols; col++) {
     const week: (HeatmapDay | null)[] = [];
     for (let row = 0; row < 7; row++) {
-      const i = col * 7 + row;
-      if (i > todayIndex) {
+      const date = new Date(start.getTime() + (col * 7 + row) * DAY_MS);
+      const day = utcDay(date);
+      // Rolling: blank the future tail. Year: blank days outside the year.
+      const outOfRange =
+        year === null ? day > todayStr : date.getUTCFullYear() !== year;
+      if (outOfRange) {
         week.push(null);
         continue;
       }
-      const date = new Date(now.getTime() + (i - todayIndex) * 86_400_000);
-      const day = dayInTimeZone(date, timeZone);
       const minutes = minutesByDay[day] ?? 0;
       if (minutes > 0) {
         totalMinutes += minutes;
