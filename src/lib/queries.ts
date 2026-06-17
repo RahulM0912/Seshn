@@ -274,28 +274,26 @@ export async function getDailyFocusMinutes(userId: string): Promise<number> {
 }
 
 /**
- * Focus minutes per local day over the last ~53 weeks, for the profile heatmap
- * (Step 15). Buckets `focus_minutes` by the day each session *ended* in the
- * profile's timezone — the same day boundary the streak and daily totals use, so
- * a cell agrees with the streak strip. RLS-scoped: a visitor only counts sessions
- * they're allowed to see, so a private day never leaks its minutes. Returns a
- * plain `{ "YYYY-MM-DD": minutes }` map; `buildFocusHeatmap` lays out the grid.
+ * Focus minutes per local day across a user's whole history, for the profile
+ * heatmap (Step 15). Buckets `focus_minutes` by the day each session *ended* in
+ * the profile's timezone — the same day boundary the streak and daily totals use,
+ * so a cell agrees with the streak strip. The full map is returned (not a single
+ * year) so the client can switch years instantly without a refetch; the rows are
+ * just two small columns. RLS-scoped: a visitor only counts sessions they're
+ * allowed to see, so a private day never leaks its minutes. Returns a plain
+ * `{ "YYYY-MM-DD": minutes }` map; `buildFocusHeatmap` lays out the grid per year.
  */
 export async function getFocusHeatmap(
   userId: string,
   timezone: string,
 ): Promise<Record<string, number>> {
   const supabase = await createClient();
-  // 53 weeks + a week of slack so the oldest visible column is fully covered.
-  const since = new Date(
-    Date.now() - 372 * 24 * 60 * 60 * 1000,
-  ).toISOString();
   const { data, error } = await supabase
     .from("sessions")
     .select("focus_minutes, ended_at")
     .eq("user_id", userId)
     .is("deleted_at", null)
-    .gte("ended_at", since);
+    .limit(10000);
   if (error) console.error("getFocusHeatmap:", error.message);
 
   const byDay: Record<string, number> = {};
