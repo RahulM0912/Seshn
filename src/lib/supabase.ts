@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { Database } from "@/lib/database.types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -9,6 +10,11 @@ if (!supabaseUrl || !supabaseKey) {
   );
 }
 
-// Browser client — uses the publishable (anon) key. Safe to ship to the client;
-// access is governed by Row Level Security on the database.
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Browser client — publishable (anon) key; access is governed by Row Level
+// Security. Backed by @supabase/ssr so the session (and the OAuth PKCE
+// verifier) live in cookies the server can read — that's what makes the
+// server-side auth gate and the /auth/callback exchange work.
+//
+// Import this in Client Components only. Server Components / Route Handlers use
+// `@/lib/supabase-server`.
+export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseKey);

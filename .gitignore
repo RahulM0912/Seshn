@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/TODO.md
+/AGENTS.md
+/CLAUDE.md
+/docs/
+/seshn_main_app_design.html
+/.claude/
+/.agents/
+/supabase/migrations/*

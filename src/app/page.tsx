@@ -1,25 +1,37 @@
-// ISR: without this the page is prerendered once at build time and the
-// waitlist count freezes. Must be a statically analyzable literal (no `60 * 1`).
-export const revalidate = 60;
-
+import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import StatRow from "@/components/StatRow";
 import HowItWorks from "@/components/HowItWorks";
 import FeedMockup from "@/components/FeedMockup";
-import Waitlist from "@/components/Waitlist";
+import FinalCta from "@/components/FinalCta";
 import Footer from "@/components/Footer";
+import { createClient } from "@/lib/supabase-server";
 
-export default function Home() {
+// Canonical lives here (not the root layout) so it applies only to the landing
+// page and never cascades to other routes.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
+
+export default async function Home() {
+  // Auth-aware landing: signed-in visitors get "Open Seshn → /feed" instead of
+  // sign-in prompts. Reading the session makes this page render dynamically.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isAuthed = !!user;
+
   return (
     <>
-      <Navbar />
+      <Navbar isAuthed={isAuthed} />
       <main className="flex-1">
-        <Hero />
+        <Hero isAuthed={isAuthed} />
         <StatRow />
         <HowItWorks />
         <FeedMockup />
-        <Waitlist />
+        <FinalCta isAuthed={isAuthed} />
       </main>
       <Footer />
     </>

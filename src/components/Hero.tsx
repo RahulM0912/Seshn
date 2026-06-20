@@ -1,14 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
-async function getWaitlistCount(): Promise<number> {
-  const { data, error } = await supabase.rpc("get_waitlist_count");
-  if (error || typeof data !== "number") return 0;
-  return data;
-}
-
-export default async function Hero() {
-  const count = await getWaitlistCount();
-
+export default function Hero({ isAuthed = false }: { isAuthed?: boolean }) {
   return (
     <section
       id="top"
@@ -30,7 +22,7 @@ export default async function Hero() {
             className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse"
           />
           <span className="font-[family-name:var(--font-mono)] text-[11px] sm:text-xs uppercase tracking-[0.25em] text-[#22C55E]">
-            Now in development
+            Now live
           </span>
         </div>
 
@@ -65,14 +57,14 @@ export default async function Hero() {
         </p>
 
         <div className="fade-up delay-500 mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-          <a
-            href="#waitlist"
-            aria-label="Join the waitlist"
+          <Link
+            href={isAuthed ? "/feed" : "/login"}
+            aria-label={isAuthed ? "Open Seshn" : "Get started with Seshn"}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#22C55E] text-[#0A0A0A] px-7 py-3.5 rounded-full text-base font-semibold hover:bg-[#16a34a] hover:scale-[1.03] transition-all"
           >
-            Join the waitlist
+            {isAuthed ? "Open Seshn" : "Get started"}
             <span aria-hidden="true">→</span>
-          </a>
+          </Link>
           <a
             href="#how"
             aria-label="See how it works"
@@ -84,11 +76,9 @@ export default async function Hero() {
         </div>
 
         <p className="fade-up delay-500 mt-8 text-sm text-[#888888]">
-          Join{" "}
-          <span className="text-white font-semibold">
-            {count.toLocaleString()} {count === 1 ? "person" : "people"}
-          </span>{" "}
-          on the waitlist
+          {isAuthed
+            ? "Welcome back · Pick up where you left off"
+            : "Free to start · Sign in with Google"}
         </p>
       </div>
     </section>
