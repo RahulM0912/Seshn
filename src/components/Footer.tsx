@@ -10,7 +10,7 @@ export default function Footer() {
           <span>Seshn © 2026</span>
         </div>
         <div className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider">
-          Built by a solo founder · Still in development
+          Built by a solo founder · Now live
         </div>
       </div>
     </footer>

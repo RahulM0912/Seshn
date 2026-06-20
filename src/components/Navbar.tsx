@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
-export default function Navbar() {
+export default function Navbar({ isAuthed = false }: { isAuthed?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -21,8 +22,8 @@ export default function Navbar() {
       }`}
     >
       <nav className="mx-auto max-w-7xl px-6 sm:px-8 h-16 flex items-center justify-between">
-        <a
-          href="#top"
+        <Link
+          href="/"
           aria-label="Seshn home"
           className="flex items-center gap-2 group"
         >
@@ -33,15 +34,34 @@ export default function Navbar() {
           <span className="font-[family-name:var(--font-display)] font-bold text-lg tracking-tight">
             Seshn
           </span>
-        </a>
+        </Link>
 
-        <a
-          href="#waitlist"
-          aria-label="Join the waitlist"
-          className="hidden sm:inline-flex items-center gap-2 bg-[#22C55E] text-[#0A0A0A] px-5 py-2 rounded-full text-sm font-semibold hover:bg-[#16a34a] hover:scale-[1.03] transition-all"
-        >
-          Join waitlist
-        </a>
+        {isAuthed ? (
+          <Link
+            href="/feed"
+            aria-label="Open Seshn"
+            className="inline-flex items-center gap-2 bg-[#22C55E] text-[#0A0A0A] px-5 py-2 rounded-full text-sm font-semibold hover:bg-[#16a34a] hover:scale-[1.03] transition-all"
+          >
+            Open Seshn
+            <span aria-hidden="true">→</span>
+          </Link>
+        ) : (
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link
+              href="/login"
+              className="hidden text-sm font-medium text-[#888888] hover:text-white transition-colors sm:inline-flex"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/login"
+              aria-label="Get started with Seshn"
+              className="inline-flex items-center gap-2 bg-[#22C55E] text-[#0A0A0A] px-5 py-2 rounded-full text-sm font-semibold hover:bg-[#16a34a] hover:scale-[1.03] transition-all"
+            >
+              Get started
+            </Link>
+          </div>
+        )}
       </nav>
     </header>
   );
