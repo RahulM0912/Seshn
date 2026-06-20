@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+
+// Thin auth entry point — disallowed in robots.txt and unindexed here so it
+// doesn't compete with the landing page in search.
+export const metadata: Metadata = {
+  title: "Sign in",
+  robots: { index: false, follow: false },
+};
 
 export default async function LoginPage({
   searchParams,

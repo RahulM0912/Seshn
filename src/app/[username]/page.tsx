@@ -35,10 +35,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { username } = await params;
   const profile = await getProfileByUsername(username);
-  if (!profile) return { title: "Not found · Seshn" };
+  if (!profile) return { title: { absolute: "Not found · Seshn" } };
+
+  // Bare title — the root layout's template appends "· Seshn".
+  const title = `${profile.display_name} (@${profile.username})`;
+  const description =
+    profile.bio ?? `${profile.display_name}'s focus sessions on Seshn.`;
   return {
-    title: `${profile.display_name} (@${profile.username}) · Seshn`,
-    description: profile.bio ?? `${profile.display_name}'s focus sessions on Seshn.`,
+    title,
+    description,
+    alternates: { canonical: `/${profile.username}` },
+    openGraph: { title, description, type: "profile", url: `/${profile.username}` },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 

@@ -1,7 +1,15 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import AppShell from "@/components/AppShell";
+
+// Every screen in this group is per-user and behind auth — keep them out of
+// search results (robots.txt disallows the same paths; this is the in-page
+// belt-and-suspenders for anything a crawler reaches via a direct link).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 // Canonical auth gate for every signed-in screen (Slices 2–11). getUser()
 // revalidates the JWT server-side — never use getSession() here. Calling
