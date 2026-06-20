@@ -1,3 +1,5 @@
+import { Flame, MessageCircle } from "lucide-react";
+
 export default function FeedMockup() {
   return (
     <section className="py-24 sm:py-32 relative overflow-hidden">
@@ -25,14 +27,11 @@ export default function FeedMockup() {
                 AR
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="font-semibold text-white">Arjun Rao</span>
-                  <span className="text-[#888888] text-sm truncate">
-                    @arjun_rao
-                  </span>
+                <div className="truncate font-semibold text-white">
+                  Arjun Rao
                 </div>
-                <div className="text-[#888888] text-xs font-[family-name:var(--font-mono)]">
-                  2 hours ago
+                <div className="truncate text-sm text-[#888888]">
+                  @arjun_rao · 2 hours ago
                 </div>
               </div>
             </header>
@@ -67,36 +66,34 @@ export default function FeedMockup() {
               </div>
             </div>
 
-            {/* Subject pill */}
+            {/* Subject pill — same dark-green fill/border as the real feed card */}
             <div className="mt-6">
-              <span className="inline-flex items-center gap-2 bg-[#22C55E]/15 text-[#22C55E] px-3 py-1.5 rounded-full text-sm font-medium border border-[#22C55E]/25">
+              <span className="inline-flex items-center gap-2 rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-3 py-1.5 text-sm font-medium text-[#22C55E]">
                 <span
                   aria-hidden="true"
-                  className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"
+                  className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"
                 />
                 Physics — Electrostatics
               </span>
             </div>
 
-            {/* Caption */}
-            <p className="mt-5 text-white/90 leading-relaxed">
+            {/* Caption — muted grey like the real feed card, just sized up for
+                the landing hero so it stays readable next to the big stat. */}
+            <p className="mt-5 text-[#888888] leading-[1.5]">
               Finally cracked Gauss&apos;s law. 8 pomodoros, zero distractions.
             </p>
 
-            {/* Footer */}
-            <footer className="mt-6 pt-5 border-t border-[#2A2A2A] flex items-center gap-5 text-sm text-[#888888]">
-              <span className="flex items-center gap-1.5">
-                <span aria-hidden="true">🔥</span> 14
-              </span>
-              <span aria-hidden="true" className="text-[#2A2A2A]">
-                ·
+            {/* Footer — same lucide icons + badge as the real feed card */}
+            <footer className="mt-6 pt-5 border-t border-[#2A2A2A] flex items-center gap-4 text-sm text-[#888888]">
+              <span className="flex items-center gap-1.5 text-[#22C55E]">
+                <Flame size={16} aria-hidden className="fill-[#22C55E]" /> 14
               </span>
               <span className="flex items-center gap-1.5">
-                <span aria-hidden="true">💬</span> 3 comments
+                <MessageCircle size={16} aria-hidden /> 3
               </span>
               <span
                 aria-hidden="true"
-                className="ml-auto text-[10px] font-[family-name:var(--font-mono)] uppercase tracking-wider text-[#22C55E] border border-[#22C55E]/30 px-2 py-0.5 rounded-full"
+                className="ml-auto rounded-[20px] border-[0.5px] border-[#22C55E33] px-2 py-[2px] text-[10px] text-[#22C55E]"
               >
                 Public
               </span>

@@ -2,7 +2,7 @@
 
 **Your focus, made social.** Track your Pomodoro sessions, post your daily focus time, and see what your friends are building — Strava, but for deep work.
 
-> 🚧 Pre-launch. The landing page + waitlist are live; the main app (Google sign-in → Pomodoro timer → social feed) is in development.
+> ✅ v1 is live — landing page + the main app (Google sign-in → Pomodoro timer → social feed).
 
 ## Stack
 

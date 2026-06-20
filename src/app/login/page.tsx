@@ -34,7 +34,7 @@ export default async function LoginPage({
         <h1
           className="font-[family-name:var(--font-display)] text-3xl font-bold tracking-tight sm:text-4xl"
         >
-          Welcome back.
+          Welcome to Seshn.
         </h1>
         <p className="mt-3 text-[#888888]">
           Sign in to track your focus and see what your friends are grinding.

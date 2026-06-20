@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Minus, Plus, Volume2, VolumeX, X } from "lucide-react";
 import { LIMITS, type TimerView } from "@/lib/timer-store";
 import { playAlarm as ringAlarm } from "@/lib/timer-sounds";
@@ -106,9 +106,9 @@ export default function TimerSettingsModal({
         exit={{ opacity: 0, y: 10, scale: 0.98 }}
         transition={{ type: "spring", stiffness: 350, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex w-full max-w-[420px] flex-col gap-5 rounded-t-[16px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5 sm:rounded-[16px]"
+        className="flex max-h-[90dvh] w-full max-w-[420px] flex-col overflow-hidden rounded-t-[16px] border-[0.5px] border-[#2A2A2A] bg-[#141414] sm:max-h-[85vh] sm:rounded-[16px]"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between p-5 pb-0">
           <div>
             <h2
               id="timer-settings-title"
@@ -130,133 +130,139 @@ export default function TimerSettingsModal({
           </button>
         </div>
 
-        {locked && (
-          <p className="-mt-1 rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2 text-[11px] leading-relaxed text-[#888888]">
-            A session is running — durations are locked. Sound can still be
-            changed. Finish or restart the timer to edit lengths.
-          </p>
-        )}
+        {/* Scrollable body — keeps the header and the action bar pinned so the
+            Save/Done buttons never get clipped when the modal is taller than the
+            viewport (short screens, browser zoom). */}
+        <div className="scrollbar-slim flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+          {locked && (
+            <p className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2 text-[11px] leading-relaxed text-[#888888]">
+              A session is running — durations are locked. Sound can still be
+              changed. Finish or restart the timer to edit lengths.
+            </p>
+          )}
 
-        {/* Durations */}
-        <section className="flex flex-col gap-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
-            Durations
-          </p>
-          <Stepper
-            label="Focus"
-            value={focus}
-            onChange={setFocus}
-            min={LIMITS.focusMin.min}
-            max={LIMITS.focusMin.max}
-            unit="min"
-            disabled={locked}
-          />
-          <Stepper
-            label="Short break"
-            value={shortBreak}
-            onChange={setShortBreak}
-            min={LIMITS.shortBreakMin.min}
-            max={LIMITS.shortBreakMin.max}
-            unit="min"
-            disabled={locked}
-          />
-          <Stepper
-            label="Long break"
-            value={longBreak}
-            onChange={setLongBreak}
-            min={LIMITS.longBreakMin.min}
-            max={LIMITS.longBreakMin.max}
-            unit="min"
-            disabled={locked}
-          />
-        </section>
-
-        {/* Sessions */}
-        <section className="flex flex-col gap-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
-            Sessions
-          </p>
-          <Stepper
-            label="Session goal"
-            value={sessionGoal}
-            onChange={setSessionGoal}
-            min={LIMITS.sessionGoal.min}
-            max={LIMITS.sessionGoal.max}
-            disabled={locked}
-          />
-          <Stepper
-            label="Long break after every"
-            value={longBreakInterval}
-            onChange={setLongBreakInterval}
-            min={LIMITS.longBreakInterval.min}
-            max={LIMITS.longBreakInterval.max}
-            disabled={locked}
-          />
-          <p className="text-[11px] leading-relaxed text-[#555555]">
-            You&apos;re aiming for {sessionGoal} pomodoro{sessionGoal === 1 ? "" : "s"}{" "}
-            (the dots on the card), with a long break after every{" "}
-            {longBreakInterval}.
-          </p>
-        </section>
-
-        {/* Sound */}
-        <section className="flex flex-col gap-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
-            Sound
-          </p>
-          <Toggle
-            label="Alarm when a phase ends"
-            checked={t.soundEnabled}
-            onChange={(v) => {
-              t.setSound({ soundEnabled: v });
-              if (v) ringAlarm(t.volume);
-            }}
-          />
-          <Toggle
-            label="Ticking while the timer runs"
-            checked={t.tickingEnabled}
-            onChange={(v) => t.setSound({ tickingEnabled: v })}
-          />
-          <div className="flex items-center gap-3 pt-0.5">
-            <button
-              type="button"
-              onClick={toggleMute}
-              aria-label={muted ? "Unmute" : "Mute"}
-              aria-pressed={muted}
-              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
-            >
-              {muted ? (
-                <VolumeX size={15} aria-hidden />
-              ) : (
-                <Volume2 size={15} aria-hidden />
-              )}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(t.volume * 100)}
-              aria-label="Volume"
-              onChange={(e) => {
-                const v = Number(e.target.value) / 100;
-                t.setSound({ volume: v });
-                if (v > 0) setLastVolume(v);
-              }}
-              className="h-1 w-full cursor-pointer accent-[#22C55E]"
+          {/* Durations */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
+              Durations
+            </p>
+            <Stepper
+              label="Focus"
+              value={focus}
+              onChange={setFocus}
+              min={LIMITS.focusMin.min}
+              max={LIMITS.focusMin.max}
+              unit="min"
+              disabled={locked}
             />
-            <button
-              type="button"
-              onClick={() => ringAlarm(t.volume)}
-              className="shrink-0 cursor-pointer rounded-[6px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-1.5 text-[11px] text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
-            >
-              Test
-            </button>
-          </div>
-        </section>
+            <Stepper
+              label="Short break"
+              value={shortBreak}
+              onChange={setShortBreak}
+              min={LIMITS.shortBreakMin.min}
+              max={LIMITS.shortBreakMin.max}
+              unit="min"
+              disabled={locked}
+            />
+            <Stepper
+              label="Long break"
+              value={longBreak}
+              onChange={setLongBreak}
+              min={LIMITS.longBreakMin.min}
+              max={LIMITS.longBreakMin.max}
+              unit="min"
+              disabled={locked}
+            />
+          </section>
 
-        {/* While locked there are no durations to commit (sound applies live),
+          {/* Sessions */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
+              Sessions
+            </p>
+            <Stepper
+              label="Session goal"
+              value={sessionGoal}
+              onChange={setSessionGoal}
+              min={LIMITS.sessionGoal.min}
+              max={LIMITS.sessionGoal.max}
+              disabled={locked}
+            />
+            <Stepper
+              label="Long break after every"
+              value={longBreakInterval}
+              onChange={setLongBreakInterval}
+              min={LIMITS.longBreakInterval.min}
+              max={LIMITS.longBreakInterval.max}
+              disabled={locked}
+            />
+            <p className="text-[11px] leading-relaxed text-[#555555]">
+              You&apos;re aiming for {sessionGoal} pomodoro{sessionGoal === 1 ? "" : "s"}{" "}
+              (the dots on the card), with a long break after every{" "}
+              {longBreakInterval}.
+            </p>
+          </section>
+
+          {/* Sound */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
+              Sound
+            </p>
+            <Toggle
+              label="Alarm when a phase ends"
+              checked={t.soundEnabled}
+              onChange={(v) => {
+                t.setSound({ soundEnabled: v });
+                if (v) ringAlarm(t.volume);
+              }}
+            />
+            <Toggle
+              label="Ticking while the timer runs"
+              checked={t.tickingEnabled}
+              onChange={(v) => t.setSound({ tickingEnabled: v })}
+            />
+            <div className="flex items-center gap-3 pt-0.5">
+              <button
+                type="button"
+                onClick={toggleMute}
+                aria-label={muted ? "Unmute" : "Mute"}
+                aria-pressed={muted}
+                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
+              >
+                {muted ? (
+                  <VolumeX size={15} aria-hidden />
+                ) : (
+                  <Volume2 size={15} aria-hidden />
+                )}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(t.volume * 100)}
+                aria-label="Volume"
+                onChange={(e) => {
+                  const v = Number(e.target.value) / 100;
+                  t.setSound({ volume: v });
+                  if (v > 0) setLastVolume(v);
+                }}
+                className="h-1 w-full cursor-pointer accent-[#22C55E]"
+              />
+              <button
+                type="button"
+                onClick={() => ringAlarm(t.volume)}
+                className="shrink-0 cursor-pointer rounded-[6px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-1.5 text-[11px] text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
+              >
+                Test
+              </button>
+            </div>
+          </section>
+        </div>
+
+        {/* Pinned action bar — divider separates it from the scrolling body.
+            While locked there are no durations to commit (sound applies live),
             so we just offer Done. */}
-        <div className="flex justify-end gap-2 pt-1">
+        <div className="flex justify-end gap-2 border-t-[0.5px] border-[#2A2A2A] p-5 pt-4">
           {locked ? (
             <button
               type="button"

@@ -54,8 +54,8 @@ export async function createClient() {
 }
 
 /**
- * Anonymous, cookie-free client for PUBLIC reads on static / ISR pages (e.g.
- * the landing-page waitlist count). It never touches cookies, so it does NOT
+ * Anonymous, cookie-free client for PUBLIC reads on static / ISR pages. It
+ * never touches cookies, so it does NOT
  * force dynamic rendering — the page stays prerenderable. It has no session;
  * never use it for anything user-specific.
  */
