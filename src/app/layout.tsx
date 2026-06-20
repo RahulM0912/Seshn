@@ -50,9 +50,9 @@ export const metadata: Metadata = {
   creator: "Seshn",
   publisher: "Seshn",
   category: "productivity",
-  alternates: {
-    canonical: "/",
-  },
+  // Note: canonical is set per-page (not here) so it doesn't cascade — a
+  // canonical on the root layout would make every page that doesn't override it
+  // claim "/" as its canonical. The landing page sets its own in app/page.tsx.
   openGraph: {
     type: "website",
     siteName: "Seshn",
