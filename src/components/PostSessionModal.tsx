@@ -43,6 +43,7 @@ function PostSessionForm({
 }) {
   const router = useRouter();
   const close = useSessionPostStore((s) => s.close);
+  const notifyPosted = useSessionPostStore((s) => s.notifyPosted);
   const resetTimer = useTimerStore((s) => s.reset);
 
   const [subject, setSubject] = useState("");
@@ -71,7 +72,7 @@ function PostSessionForm({
     setSubmitting(true);
     setError("");
 
-    const { error: insertError } = await postSession({
+    const { data: posted, error: insertError } = await postSession({
       userId,
       startedAt: pending.startedAt,
       endedAt: pending.endedAt,
@@ -83,15 +84,16 @@ function PostSessionForm({
       visibility,
     });
 
-    if (insertError) {
+    if (insertError || !posted) {
       setError("Couldn't post your session. Please try again.");
       setSubmitting(false);
       return;
     }
 
     resetTimer(); // clear the timer back to idle now that it's posted
+    notifyPosted(posted); // a mounted feed/profile list prepends the new card now
     close();
-    router.refresh(); // let the feed/profile pick up the new row (built later)
+    router.refresh(); // refresh the server-rendered stats (streak / Today / heatmap)
   }
 
   // Throw the whole session away without posting. Destructive (the focus time is

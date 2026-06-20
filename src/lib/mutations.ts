@@ -8,8 +8,13 @@
 // inspect `error.code` (e.g. `23505` unique_violation) and run optimistic UI.
 // Filled in per slice — add a function when its feature is built.
 
+import type { PostgrestError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import type { SessionInsert, Visibility } from "@/lib/database.types";
+import type {
+  SessionInsert,
+  SessionWithProfile,
+  Visibility,
+} from "@/lib/database.types";
 
 export interface PostSessionInput {
   userId: string;
@@ -26,7 +31,15 @@ export interface PostSessionInput {
 // Insert a posted focus session (Slice 3 / Step 4). Deliberately omits
 // like_count/comment_count — the RLS insert policy pins them to 0 and rejects
 // any seeded value. The streak row updates itself via a DB trigger.
-export function postSession(input: PostSessionInput) {
+//
+// Returns the inserted row with its author profile attached, so the feed/profile
+// `SessionList` (which holds its cards in client state `router.refresh()` can't
+// reach) can prepend the new card instantly — no reload. The author is joined in
+// a second query rather than a PostgREST `profiles(*)` embed, which returns no
+// rows against this Supabase instance (see queries.ts).
+export async function postSession(
+  input: PostSessionInput,
+): Promise<{ data: SessionWithProfile | null; error: PostgrestError | null }> {
   const payload: SessionInsert = {
     user_id: input.userId,
     started_at: input.startedAt,
@@ -38,7 +51,20 @@ export function postSession(input: PostSessionInput) {
     caption: input.caption,
     visibility: input.visibility,
   };
-  return supabase.from("sessions").insert(payload);
+  const { data: session, error } = await supabase
+    .from("sessions")
+    .insert(payload)
+    .select("*")
+    .single();
+  if (error || !session) return { data: null, error };
+
+  const { data: author } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", input.userId)
+    .single();
+
+  return { data: author ? { ...session, profiles: author } : null, error: null };
 }
 
 // Edit a posted session's text/sharing fields (Step 14). RLS scopes the UPDATE to
