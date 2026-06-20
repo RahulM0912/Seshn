@@ -1,4 +1,4 @@
-import { CircleDot, Flame, MessageCircle } from "lucide-react";
+import { Flame, MessageCircle } from "lucide-react";
 import type { SessionWithProfile } from "@/lib/database.types";
 import { avatarColor, formatFocusTime, initials, relativeTime } from "@/lib/format";
 import SessionCardFooter from "@/components/SessionCardFooter";
@@ -94,7 +94,7 @@ export default function SessionCard({
       {/* Subject */}
       {session.subject && (
         <div className="mb-2 inline-flex items-center gap-[5px] rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2.5 py-[3px] text-[11px] text-[#22C55E]">
-          <CircleDot size={10} aria-hidden />
+          <span aria-hidden className="h-[6px] w-[6px] flex-shrink-0 rounded-full bg-[#22C55E]" />
           {session.subject}
         </div>
       )}

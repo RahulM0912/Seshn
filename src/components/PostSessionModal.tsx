@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Lock, Users, X } from "lucide-react";
 import { postSession } from "@/lib/mutations";
+import { formatFocusLong } from "@/lib/format";
 import { useTimerStore, type PendingSession } from "@/lib/timer-store";
 import { useSessionPostStore } from "@/lib/session-post-store";
 
@@ -21,13 +22,6 @@ const VISIBILITY_OPTIONS: {
   { value: "followers", label: "Followers", Icon: Users },
   { value: "private", label: "Private", Icon: Lock },
 ];
-
-function formatFocus(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
-}
 
 // Post-session modal (Slice 3 / Step 4). Mounted once in the app shell; opens
 // from the TimerCard's "End session" button with a snapshot of the session.
@@ -135,7 +129,7 @@ function PostSessionForm({
             </h2>
             <p className="mt-0.5 text-[12px] text-[#888888]">
               <span className="text-[#22C55E]">
-                {formatFocus(pending.focusMinutes)}
+                {formatFocusLong(pending.focusMinutes)}
               </span>{" "}
               focused · {pending.pomodorosCompleted}/{pending.pomodorosPlanned} pomodoros
             </p>

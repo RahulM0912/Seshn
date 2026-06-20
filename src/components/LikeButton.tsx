@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 import { likeSession, unlikeSession } from "@/lib/mutations";
 
@@ -48,22 +49,31 @@ export default function LikeButton({
   }
 
   return (
-    <button
+    <motion.button
       type="button"
       onClick={toggle}
       disabled={busy}
+      whileTap={{ scale: 0.85 }}
+      transition={{ type: "spring", stiffness: 500, damping: 20 }}
       aria-pressed={liked}
       aria-label={liked ? "Unlike this session" : "Like this session"}
-      className={`-m-1 flex items-center gap-[5px] rounded-md p-1 text-[12px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E] ${
+      className={`-m-1 flex cursor-pointer items-center gap-[5px] rounded-md p-1 text-[12px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E] disabled:cursor-default ${
         liked ? "text-[#22C55E]" : "text-[#555555] hover:text-[#888888]"
       }`}
     >
-      <Flame
-        size={14}
-        aria-hidden
-        className={liked ? "fill-[#22C55E]" : ""}
-      />
+      <motion.span
+        key={liked ? "liked" : "unliked"}
+        initial={liked ? { scale: 0.5, rotate: -15 } : { scale: 1, rotate: 0 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: "spring", stiffness: 500, damping: 18 }}
+      >
+        <Flame
+          size={14}
+          aria-hidden
+          className={liked ? "fill-[#22C55E]" : ""}
+        />
+      </motion.span>
       <span className="tabular-nums">{count}</span>
-    </button>
+    </motion.button>
   );
 }

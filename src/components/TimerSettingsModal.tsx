@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Minus, Plus, Volume2, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Minus, Plus, Volume2, VolumeX, X } from "lucide-react";
 import { LIMITS, type TimerView } from "@/lib/timer-store";
 import { playAlarm as ringAlarm } from "@/lib/timer-sounds";
 
@@ -31,6 +32,21 @@ export default function TimerSettingsModal({
   const [longBreak, setLongBreak] = useState(t.longBreakMin);
   const [sessionGoal, setSessionGoal] = useState(t.sessionGoal);
   const [longBreakInterval, setLongBreakInterval] = useState(t.longBreakInterval);
+
+  // Remembers the volume to restore when the speaker is un-muted. Seeded with the
+  // current level (or a sensible default if we open already at zero) and kept in
+  // sync whenever the slider moves to a non-zero value.
+  const [lastVolume, setLastVolume] = useState(t.volume > 0 ? t.volume : 0.5);
+  const muted = t.volume === 0;
+
+  function toggleMute() {
+    if (muted) {
+      t.setSound({ volume: lastVolume > 0 ? lastVolume : 0.5 });
+    } else {
+      setLastVolume(t.volume);
+      t.setSound({ volume: 0 });
+    }
+  }
 
   // Durations are locked once a session is underway (so every pomodoro stays the
   // same length). Sound still adjusts live — that's why the gear stays available.
@@ -72,15 +88,23 @@ export default function TimerSettingsModal({
   }
 
   return (
-    <div
+    <motion.div
       role="presentation"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
     >
-      <div
+      <motion.div
         role="dialog"
         aria-modal="true"
         aria-labelledby="timer-settings-title"
+        initial={{ opacity: 0, y: 16, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 350, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
         className="flex w-full max-w-[420px] flex-col gap-5 rounded-t-[16px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5 sm:rounded-[16px]"
       >
@@ -194,14 +218,30 @@ export default function TimerSettingsModal({
             onChange={(v) => t.setSound({ tickingEnabled: v })}
           />
           <div className="flex items-center gap-3 pt-0.5">
-            <Volume2 size={15} aria-hidden className="shrink-0 text-[#888888]" />
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute" : "Mute"}
+              aria-pressed={muted}
+              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
+            >
+              {muted ? (
+                <VolumeX size={15} aria-hidden />
+              ) : (
+                <Volume2 size={15} aria-hidden />
+              )}
+            </button>
             <input
               type="range"
               min={0}
               max={100}
               value={Math.round(t.volume * 100)}
               aria-label="Volume"
-              onChange={(e) => t.setSound({ volume: Number(e.target.value) / 100 })}
+              onChange={(e) => {
+                const v = Number(e.target.value) / 100;
+                t.setSound({ volume: v });
+                if (v > 0) setLastVolume(v);
+              }}
               className="h-1 w-full cursor-pointer accent-[#22C55E]"
             />
             <button
@@ -244,8 +284,8 @@ export default function TimerSettingsModal({
             </>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -336,10 +376,11 @@ function Toggle({
           checked ? "bg-[#22C55E]" : "bg-[#2A2A2A]"
         }`}
       >
-        <span
-          className={`absolute top-[2px] h-[16px] w-[16px] rounded-full bg-white transition-[left] ${
-            checked ? "left-[16px]" : "left-[2px]"
-          }`}
+        <motion.span
+          aria-hidden
+          animate={{ left: checked ? 16 : 2 }}
+          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          className="absolute top-[2px] h-[16px] w-[16px] rounded-full bg-white"
         />
       </span>
     </button>

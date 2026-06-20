@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { LayoutList, LogOut, Settings, User, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { avatarColor, initials } from "@/lib/format";
@@ -100,14 +101,19 @@ export default function AppNavbar({
             aria-expanded={menuOpen}
             title={displayName}
             style={{ backgroundColor: av.bg, color: av.text }}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-medium transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22C55E]"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[11px] font-medium transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22C55E]"
           >
             {initials(displayName)}
           </button>
 
+          <AnimatePresence>
           {menuOpen && (
-            <div
+            <motion.div
               role="menu"
+              initial={{ opacity: 0, scale: 0.95, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -6 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
               className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 overflow-hidden rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] py-1 shadow-xl shadow-black/40"
             >
               <div className="border-b-[0.5px] border-[#2A2A2A] px-3 py-2.5">
@@ -141,13 +147,14 @@ export default function AppNavbar({
                 role="menuitem"
                 onClick={signOut}
                 disabled={signingOut}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#888888] transition-colors hover:bg-[#1C1C1C] hover:text-[#F87171] disabled:opacity-60"
+                className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#888888] transition-colors hover:bg-[#1C1C1C] hover:text-[#F87171] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <LogOut size={15} aria-hidden />
                 {signingOut ? "Signing out…" : "Sign out"}
               </button>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
         </div>
       </div>
     </header>

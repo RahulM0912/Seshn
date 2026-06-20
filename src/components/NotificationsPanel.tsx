@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Bell } from "lucide-react";
 import { avatarColor, initials, relativeTime } from "@/lib/format";
 import type { NotificationFeedItem } from "@/lib/database.types";
@@ -38,9 +39,13 @@ export default function NotificationsPanel({
   onNavigate: () => void;
 }) {
   return (
-    <div
+    <motion.div
       role="menu"
       aria-label="Notifications"
+      initial={{ opacity: 0, scale: 0.95, y: -6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: -6 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
       className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[70vh] w-80 overflow-y-auto overflow-x-hidden rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] py-1 shadow-xl shadow-black/40"
     >
       <div className="border-b-[0.5px] border-[#2A2A2A] px-3 py-2.5 text-[13px] font-medium text-white">
@@ -107,6 +112,6 @@ export default function NotificationsPanel({
           })}
         </ul>
       )}
-    </div>
+    </motion.div>
   );
 }

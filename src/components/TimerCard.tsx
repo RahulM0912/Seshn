@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Pause, Play, RefreshCw, Settings, SkipForward, Square } from "lucide-react";
 import {
   getPendingSession,
@@ -88,7 +89,7 @@ export default function TimerCard() {
             onClick={() => setShowSettings(true)}
             aria-label="Timer settings"
             aria-haspopup="dialog"
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
+            className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
           >
             <Settings size={14} aria-hidden />
           </button>
@@ -98,9 +99,11 @@ export default function TimerCard() {
         </div>
       </div>
 
-      {showSettings && (
-        <TimerSettingsModal t={t} onClose={() => setShowSettings(false)} />
-      )}
+      <AnimatePresence>
+        {showSettings && (
+          <TimerSettingsModal t={t} onClose={() => setShowSettings(false)} />
+        )}
+      </AnimatePresence>
 
       <div
         role="timer"
@@ -126,9 +129,12 @@ export default function TimerCard() {
 
       <div className="mb-3.5 flex flex-wrap justify-center gap-1.5">
         {Array.from({ length: goal }).map((_, i) => (
-          <span
-            key={i}
+          <motion.span
+            key={`${i}-${i < filledDots}`}
             aria-hidden
+            initial={i < filledDots ? { scale: 0 } : false}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 500, damping: 20 }}
             className={`h-[9px] w-[9px] rounded-full ${
               i < filledDots ? "bg-[#22C55E]" : "bg-[#2A2A2A]"
             }`}
@@ -158,29 +164,41 @@ export default function TimerCard() {
       </div>
 
       {/* Skip the break straight into the next focus block. */}
-      {onBreak && (
-        <button
-          type="button"
-          onClick={t.skipBreak}
-          className="mt-2 flex min-h-[38px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[12px] font-medium text-[#888888] transition-colors hover:text-white"
-        >
-          <SkipForward size={13} aria-hidden />
-          Skip break
-        </button>
-      )}
+      <AnimatePresence>
+        {onBreak && (
+          <motion.button
+            type="button"
+            onClick={t.skipBreak}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.18 }}
+            className="mt-2 flex min-h-[38px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[12px] font-medium text-[#888888] transition-colors hover:text-white"
+          >
+            <SkipForward size={13} aria-hidden />
+            Skip break
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* End the session — opens the wrap-up where you post or discard it. Only
           meaningful once one's underway. */}
-      {!idle && (
-        <button
-          type="button"
-          onClick={onEndSession}
-          className="mt-2 flex min-h-[38px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] text-[12px] font-medium text-[#22C55E] transition-colors hover:bg-[#143d1d]"
-        >
-          <Square size={13} aria-hidden />
-          End session
-        </button>
-      )}
+      <AnimatePresence>
+        {!idle && (
+          <motion.button
+            type="button"
+            onClick={onEndSession}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.18 }}
+            className="mt-2 flex min-h-[38px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] text-[12px] font-medium text-[#22C55E] transition-colors hover:bg-[#143d1d]"
+          >
+            <Square size={13} aria-hidden />
+            End session
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       <div className="mt-2.5 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-3 py-2.5">
         <p className="mb-1.5 text-[10px] uppercase tracking-[0.06em] text-[#22C55E]">
@@ -197,7 +215,7 @@ export default function TimerCard() {
           </div>
           <div>
             <div className="text-[18px] font-semibold text-[#22C55E] tabular-nums">
-              {t.focusMinutes}m
+              {t.focusMinutes} min
             </div>
             <div className="text-[10px] uppercase tracking-[0.05em] text-[#3E7D4E]">
               Focus time

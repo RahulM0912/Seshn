@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Bell } from "lucide-react";
 import {
   getNotifications,
@@ -101,14 +102,16 @@ export default function NotificationsBell({
         )}
       </button>
 
-      {open && (
-        <NotificationsPanel
-          items={items}
-          loading={loading}
-          viewerUsername={viewerUsername}
-          onNavigate={() => setOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {open && (
+          <NotificationsPanel
+            items={items}
+            loading={loading}
+            viewerUsername={viewerUsername}
+            onNavigate={() => setOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

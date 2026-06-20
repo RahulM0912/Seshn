@@ -60,7 +60,7 @@ export default function FeedMockup() {
                 className="font-[family-name:var(--font-display)] font-bold text-white leading-none"
                 style={{ fontSize: "clamp(48px, 7vw, 72px)" }}
               >
-                3h 20m
+                3 hr 20 min
               </div>
               <div className="mt-1 text-[#888888] text-sm font-[family-name:var(--font-mono)] uppercase tracking-wider">
                 Total focus time
