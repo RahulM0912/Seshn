@@ -5,6 +5,7 @@ import { Check, ChevronDown, Loader2 } from "lucide-react";
 import SessionCard from "@/components/SessionCard";
 import SessionCardSkeleton from "@/components/SessionCardSkeleton";
 import { loadSessions, type LoadSessionsInput } from "@/lib/actions";
+import type { SessionEdit } from "@/lib/mutations";
 import type {
   SessionCursor,
   SessionWithProfile,
@@ -134,6 +135,26 @@ export default function SessionList({
     }
   }
 
+  // Owner edited/deleted one of their cards (via the ⋯ menu). The list owns the
+  // rendered array in client state, which `router.refresh()` can't reach, so we
+  // patch it here for an instant update — no reload, and the accumulated
+  // infinite-scroll pages stay intact.
+  function handleDeleted(id: string) {
+    setItems((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function handleEdited(id: string, fields: SessionEdit) {
+    setItems((prev) => {
+      // On the owner's filtered profile list, a visibility change that no longer
+      // matches the active filter drops the card out — same as a reload would.
+      const filterActive = context.kind === "profile" && visibility !== "all";
+      if (filterActive && fields.visibility !== visibility) {
+        return prev.filter((s) => s.id !== id);
+      }
+      return prev.map((s) => (s.id === id ? { ...s, ...fields } : s));
+    });
+  }
+
   // Close the dropdown on outside click / Escape.
   useEffect(() => {
     if (!menuOpen) return;
@@ -246,6 +267,8 @@ export default function SessionList({
               session={session}
               viewerId={viewerId}
               liked={liked.has(session.id)}
+              onDeleted={handleDeleted}
+              onEdited={handleEdited}
             />
           ))}
         </div>

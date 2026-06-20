@@ -2,6 +2,7 @@
 
 import { Flame, MessageCircle } from "lucide-react";
 import type { SessionWithProfile } from "@/lib/database.types";
+import type { SessionEdit } from "@/lib/mutations";
 import { avatarColor, formatFocusTime, initials, relativeTime } from "@/lib/format";
 import SessionCardFooter from "@/components/SessionCardFooter";
 import SessionOwnerMenu from "@/components/SessionOwnerMenu";
@@ -23,11 +24,18 @@ export default function SessionCard({
   viewerId = null,
   liked = false,
   defaultCommentsOpen = false,
+  onDeleted,
+  onEdited,
 }: {
   session: SessionWithProfile;
   viewerId?: string | null;
   liked?: boolean;
   defaultCommentsOpen?: boolean;
+  /** Owner-list hooks: let the parent list update its own state on edit/delete
+   *  instead of a server round-trip. Omitted on the permalink (server-rendered),
+   *  where the owner menu falls back to `router.refresh()`. */
+  onDeleted?: (id: string) => void;
+  onEdited?: (id: string, fields: SessionEdit) => void;
 }) {
   const author = session.profiles;
   const av = avatarColor(author.id);
@@ -60,7 +68,15 @@ export default function SessionCard({
 
         {/* Owner-only edit/delete — shows wherever this card renders (feed,
             profile, permalink) for the author's own posts. */}
-        {viewerId === author.id && <SessionOwnerMenu session={session} />}
+        {viewerId === author.id && (
+          <SessionOwnerMenu
+            session={session}
+            onDeleted={onDeleted ? () => onDeleted(session.id) : undefined}
+            onEdited={
+              onEdited ? (fields) => onEdited(session.id, fields) : undefined
+            }
+          />
+        )}
       </header>
 
       {/* Pomodoro dots */}

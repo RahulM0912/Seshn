@@ -12,7 +12,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { softDeleteSession, updateSession } from "@/lib/mutations";
+import { softDeleteSession, updateSession, type SessionEdit } from "@/lib/mutations";
 import type { SessionWithProfile, Visibility } from "@/lib/database.types";
 
 // Owner-only controls on a SessionCard (Step 14). Rendered in the card header
@@ -21,10 +21,12 @@ import type { SessionWithProfile, Visibility } from "@/lib/database.types";
 // ⋯ menu plus its two actions: an edit modal (subject/caption/visibility — the
 // focus stats are immutable) and a two-tap delete confirm (soft delete via RLS).
 //
-// After a successful edit or delete we `router.refresh()` so the server-rendered
-// card re-reads: an edited card shows new text, a deleted one drops out of the
-// list (RLS now hides it). No optimistic local state — the row lives on the
-// server-rendered page, not in this client tree.
+// On success we prefer the optional `onEdited` / `onDeleted` callbacks so the
+// caller can patch its own state instantly. `SessionList` (feed + profile) holds
+// its cards in client state that `router.refresh()` can't reach — it keeps the
+// stale array after a refresh — so without these callbacks an edit/delete only
+// showed up after a full reload. When no callback is passed (the permalink, where
+// the card is server-rendered) we fall back to `router.refresh()`.
 
 const SUBJECT_MAX = 60;
 const CAPTION_MAX = 280;
@@ -41,8 +43,15 @@ const VISIBILITY_OPTIONS: {
 
 export default function SessionOwnerMenu({
   session,
+  onDeleted,
+  onEdited,
 }: {
   session: SessionWithProfile;
+  /** Called after a successful soft-delete so the list can drop the card. */
+  onDeleted?: () => void;
+  /** Called after a successful edit with the saved fields, so the list can patch
+   *  the card in place. */
+  onEdited?: (fields: SessionEdit) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -102,14 +111,22 @@ export default function SessionOwnerMenu({
             <Pencil size={13} aria-hidden />
             Edit
           </button>
-          <DeleteMenuItem session={session} onDone={() => setMenuOpen(false)} />
+          <DeleteMenuItem
+            session={session}
+            onDone={() => setMenuOpen(false)}
+            onDeleted={onDeleted}
+          />
         </motion.div>
       )}
       </AnimatePresence>
 
       <AnimatePresence>
       {editing && (
-        <EditSessionModal session={session} onClose={() => setEditing(false)} />
+        <EditSessionModal
+          session={session}
+          onClose={() => setEditing(false)}
+          onEdited={onEdited}
+        />
       )}
       </AnimatePresence>
     </div>
@@ -122,9 +139,11 @@ export default function SessionOwnerMenu({
 function DeleteMenuItem({
   session,
   onDone,
+  onDeleted,
 }: {
   session: SessionWithProfile;
   onDone: () => void;
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const [armed, setArmed] = useState(false);
@@ -145,7 +164,9 @@ function DeleteMenuItem({
       return;
     }
     onDone();
-    router.refresh();
+    // Prefer the caller's optimistic removal; fall back to a server re-read.
+    if (onDeleted) onDeleted();
+    else router.refresh();
   }
 
   return (
@@ -171,9 +192,11 @@ function DeleteMenuItem({
 function EditSessionModal({
   session,
   onClose,
+  onEdited,
 }: {
   session: SessionWithProfile;
   onClose: () => void;
+  onEdited?: (fields: SessionEdit) => void;
 }) {
   const router = useRouter();
   const [subject, setSubject] = useState(session.subject ?? "");
@@ -199,18 +222,21 @@ function EditSessionModal({
     if (saving) return;
     setSaving(true);
     setError("");
-    const { error: updateError } = await updateSession(session.id, {
+    const edited: SessionEdit = {
       subject: subject.trim() || null,
       caption: caption.trim() || null,
       visibility,
-    });
+    };
+    const { error: updateError } = await updateSession(session.id, edited);
     if (updateError) {
       setError("Couldn't save your changes. Please try again.");
       setSaving(false);
       return;
     }
     onClose();
-    router.refresh();
+    // Prefer the caller's optimistic patch; fall back to a server re-read.
+    if (onEdited) onEdited(edited);
+    else router.refresh();
   }
 
   return (

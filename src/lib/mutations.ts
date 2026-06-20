@@ -64,14 +64,18 @@ export function updateSession(sessionId: string, fields: SessionEdit) {
 
 // Delete a posted session (Step 14). SOFT delete — set `deleted_at`, and RLS hides
 // the row from every future read (feed, profile, permalink, daily totals all filter
-// `deleted_at is null`). Mirrors the comment-delete pattern; the owner-only RLS
-// update policy already permits this. Its likes/comments are left in place but
-// become unreachable along with the hidden session.
+// `deleted_at is null`). Its likes/comments are left in place but become unreachable
+// along with the hidden session.
+//
+// Routed through the `soft_delete_session` SECURITY DEFINER function rather than a
+// direct `update`: a plain owner UPDATE that set `deleted_at` was being rejected with
+// "new row violates row-level security policy" even though the owner-only update
+// policy is correct (verified: clean `user_id = auth.uid()` check, no restrictive
+// policy, owner-role update succeeds). The function runs in the owner context — which
+// is exempt from RLS here — while still gating on `user_id = auth.uid()`, so deletes
+// stay strictly owner-only.
 export function softDeleteSession(sessionId: string) {
-  return supabase
-    .from("sessions")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", sessionId);
+  return supabase.rpc("soft_delete_session", { p_session_id: sessionId });
 }
 
 // Follow / unfollow (Slice 6 / Step 7). RLS pins `follower_id` to the caller, so
@@ -132,11 +136,15 @@ export function updateComment(commentId: string, body: string) {
     .eq("id", commentId);
 }
 
+// SOFT delete via the `soft_delete_comment` SECURITY DEFINER function, for the
+// same reason as `softDeleteSession`: a direct owner UPDATE that sets `deleted_at`
+// is rejected by RLS (setting it drops the row out of `comments_select`'s
+// `deleted_at is null` filter, so the authenticated role can't write a row it can
+// no longer read). The function runs in the owner context (exempt from RLS) while
+// still gating on `user_id = auth.uid()`, so it stays author-only. The
+// comment-count trigger fires on the UPDATE and decrements as before.
 export function softDeleteComment(commentId: string) {
-  return supabase
-    .from("comments")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", commentId);
+  return supabase.rpc("soft_delete_comment", { p_comment_id: commentId });
 }
 
 // Mark every unread notification read (Slice 9 / Step 10) — called when the inbox
