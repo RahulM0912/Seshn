@@ -5,6 +5,7 @@ import { Check, ChevronDown, Loader2 } from "lucide-react";
 import SessionCard from "@/components/SessionCard";
 import SessionCardSkeleton from "@/components/SessionCardSkeleton";
 import { loadSessions, type LoadSessionsInput } from "@/lib/actions";
+import { useSessionPostStore } from "@/lib/session-post-store";
 import type { SessionEdit } from "@/lib/mutations";
 import type {
   SessionCursor,
@@ -154,6 +155,37 @@ export default function SessionList({
       return prev.map((s) => (s.id === id ? { ...s, ...fields } : s));
     });
   }
+
+  // A session just posted through the global post-session modal. That modal lives
+  // in the app shell — outside this list's tree — so it can't call down via props
+  // like the owner menu does; it signals through the post store instead. We
+  // *subscribe* to the store (rather than read a rendered value and patch in an
+  // effect) so the prepend runs in an external-event callback, not during render.
+  // Prepend only if the new card belongs here (same rules the server query uses),
+  // consuming each id once so a later re-render or delete can't bring it back.
+  const consumedPostId = useRef<string | null>(null);
+  useEffect(() => {
+    return useSessionPostStore.subscribe((state) => {
+      const posted = state.posted;
+      if (!posted || consumedPostId.current === posted.id) return;
+      consumedPostId.current = posted.id;
+      // Your post never shows on someone else's profile.
+      if (context.kind === "profile" && context.profileId !== posted.user_id) {
+        return;
+      }
+      // On the owner's profile, respect an active visibility filter.
+      if (
+        context.kind === "profile" &&
+        visibility !== "all" &&
+        posted.visibility !== visibility
+      ) {
+        return;
+      }
+      setItems((prev) =>
+        prev.some((s) => s.id === posted.id) ? prev : [posted, ...prev],
+      );
+    });
+  }, [context, visibility]);
 
   // Close the dropdown on outside click / Escape.
   useEffect(() => {
