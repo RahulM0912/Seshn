@@ -186,6 +186,7 @@ export interface Database {
           user_id: string;
           body: string;
           created_at: string;
+          edited_at: string | null;
           deleted_at: string | null;
         };
         Insert: {
@@ -194,6 +195,7 @@ export interface Database {
           user_id: string;
           body: string;
           created_at?: string;
+          edited_at?: string | null;
           deleted_at?: string | null;
         };
         Update: {
@@ -202,6 +204,7 @@ export interface Database {
           user_id?: string;
           body?: string;
           created_at?: string;
+          edited_at?: string | null;
           deleted_at?: string | null;
         };
         Relationships: [];

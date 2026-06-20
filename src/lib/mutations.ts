@@ -121,6 +121,17 @@ export function addComment(userId: string, sessionId: string, body: string) {
     .insert({ user_id: userId, session_id: sessionId, body });
 }
 
+// Edit your own comment's body. RLS scopes the UPDATE to the author
+// (comments_update policy). Stamps `edited_at` so the UI can show an "edited"
+// marker; the comment-count trigger ignores body-only updates, so the count is
+// untouched.
+export function updateComment(commentId: string, body: string) {
+  return supabase
+    .from("comments")
+    .update({ body, edited_at: new Date().toISOString() })
+    .eq("id", commentId);
+}
+
 export function softDeleteComment(commentId: string) {
   return supabase
     .from("comments")

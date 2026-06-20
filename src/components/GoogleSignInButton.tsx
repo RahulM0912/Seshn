@@ -27,7 +27,7 @@ export default function GoogleSignInButton() {
         type="button"
         onClick={signIn}
         disabled={loading}
-        className="flex w-full items-center justify-center gap-3 rounded-full bg-white px-6 py-3.5 text-base font-semibold text-[#0A0A0A] transition-all hover:scale-[1.02] hover:bg-white/90 disabled:opacity-60 disabled:hover:scale-100"
+        className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-full bg-white px-6 py-3.5 text-base font-semibold text-[#0A0A0A] transition-all hover:scale-[1.02] hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
       >
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 48 48">
           <path

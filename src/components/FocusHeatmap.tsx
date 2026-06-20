@@ -136,12 +136,16 @@ export default function FocusHeatmap({
 
   return (
     <section className="mt-6 rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5">
-      {/* Title row */}
-      <div className="mb-3 flex items-center justify-between gap-3">
+      {/* Header — title, stats and the range selector. Stacks on mobile (title on
+          its own row, then stats + range below) and collapses onto a single line
+          from sm up, with the stats/range pinned right and everything vertically
+          centred. */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <h2 className="text-[13px] font-semibold text-white">Focus activity</h2>
-        <div className="flex gap-5">
-          {/* Stats row — LeetCode-style labeled pairs */}
-          <div className="mb-4 flex items-center gap-5">
+        <div className="flex items-center justify-between gap-4 sm:justify-end sm:gap-5">
+          {/* Stats — LeetCode-style labeled pairs. Wrap on very narrow screens so
+              they never collide with the range button. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:gap-x-5">
             <div>
               <span className="text-[11px] text-[#555555]">Total focus: </span>
               <span className="text-[11px] font-semibold text-white tabular-nums">
@@ -250,7 +254,7 @@ export default function FocusHeatmap({
                     key={row}
                     onMouseEnter={(e) => showTip(e, cell)}
                     style={{ backgroundColor: LEVEL_BG[cell.level] }}
-                    className="block aspect-square w-full rounded-[2px]"
+                    className="block aspect-square w-full cursor-pointer rounded-[2px]"
                   />
                 ) : (
                   <span key={row} className="block aspect-square w-full" />

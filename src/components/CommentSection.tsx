@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { getSessionComments } from "@/lib/client-queries";
-import { addComment, softDeleteComment } from "@/lib/mutations";
+import { addComment, softDeleteComment, updateComment } from "@/lib/mutations";
 import { avatarColor, initials, relativeTime } from "@/lib/format";
 import type { CommentWithProfile } from "@/lib/database.types";
 
@@ -28,6 +28,10 @@ export default function CommentSection({
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Inline edit: which comment (if any) is open in its editor, plus the draft.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Lazy load: the section only mounts when opened, so this fires once. `loading`
   // already starts true (the card opened) — no need to set it here.
@@ -74,6 +78,48 @@ export default function CommentSection({
     }
   }
 
+  function startEdit(c: CommentWithProfile) {
+    setEditingId(c.id);
+    setDraft(c.body);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setDraft("");
+  }
+
+  // Save an edit (Enter or the Save button). Optimistic, same as like/delete:
+  // patch body + edited_at locally, fire the write, revert on a real error.
+  // A blank or unchanged draft just closes the editor without a write.
+  async function saveEdit(id: string) {
+    const text = draft.trim();
+    const original = comments.find((c) => c.id === id);
+    if (!original) return;
+    if (!text || text === original.body) {
+      cancelEdit();
+      return;
+    }
+    if (savingEdit) return;
+    setSavingEdit(true);
+    const editedAt = new Date().toISOString();
+    setComments((cs) =>
+      cs.map((c) => (c.id === id ? { ...c, body: text, edited_at: editedAt } : c)),
+    );
+    const { error } = await updateComment(id, text);
+    if (error) {
+      console.error("updateComment:", error.message);
+      setComments((cs) =>
+        cs.map((c) =>
+          c.id === id
+            ? { ...c, body: original.body, edited_at: original.edited_at }
+            : c,
+        ),
+      );
+    }
+    setSavingEdit(false);
+    cancelEdit();
+  }
+
   return (
     <div className="mt-3 border-t-[0.5px] border-[#1C1C1C] pt-3">
       {loading ? (
@@ -101,21 +147,77 @@ export default function CommentSection({
                     </span>
                     <span className="flex-shrink-0 text-[10px] text-[#555555]">
                       {relativeTime(c.created_at)}
+                      {c.edited_at && " · edited"}
                     </span>
-                    {mine && (
-                      <button
-                        type="button"
-                        onClick={() => remove(c.id)}
-                        aria-label="Delete comment"
-                        className="ml-auto flex-shrink-0 rounded p-0.5 text-[#555555] transition-colors hover:text-[#F87171] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#F87171]"
-                      >
-                        <Trash2 size={12} aria-hidden />
-                      </button>
+                    {mine && editingId !== c.id && (
+                      <div className="ml-auto flex flex-shrink-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(c)}
+                          aria-label="Edit comment"
+                          className="cursor-pointer rounded p-0.5 text-[#555555] transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E]"
+                        >
+                          <Pencil size={12} aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => remove(c.id)}
+                          aria-label="Delete comment"
+                          className="cursor-pointer rounded p-0.5 text-[#555555] transition-colors hover:text-[#F87171] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#F87171]"
+                        >
+                          <Trash2 size={12} aria-hidden />
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.5] text-[#888888]">
-                    {c.body}
-                  </p>
+                  {editingId === c.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        saveEdit(c.id);
+                      }}
+                      className="mt-1"
+                    >
+                      <textarea
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        maxLength={MAX}
+                        rows={2}
+                        autoFocus
+                        aria-label="Edit comment"
+                        onKeyDown={(e) => {
+                          // Enter saves; Shift+Enter newlines; Escape cancels.
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            saveEdit(c.id);
+                          } else if (e.key === "Escape") {
+                            cancelEdit();
+                          }
+                        }}
+                        className="w-full resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-1.5 text-[12px] leading-[1.4] text-white placeholder:text-[#555555] focus:border-[#22C55E] focus:outline-none"
+                      />
+                      <div className="mt-1 flex items-center gap-2">
+                        <button
+                          type="submit"
+                          disabled={savingEdit || !draft.trim()}
+                          className="cursor-pointer rounded-[6px] bg-[#22C55E] px-2.5 py-1 text-[11px] font-medium text-[#0A0A0A] transition-colors hover:bg-[#1FB055] disabled:cursor-default disabled:opacity-40"
+                        >
+                          {savingEdit ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="cursor-pointer rounded-[6px] px-2.5 py-1 text-[11px] text-[#888888] transition-colors hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.5] text-[#888888]">
+                      {c.body}
+                    </p>
+                  )}
                 </div>
               </li>
             );

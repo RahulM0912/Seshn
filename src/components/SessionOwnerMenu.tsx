@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
   Globe,
@@ -74,14 +75,19 @@ export default function SessionOwnerMenu({
         aria-label="Post options"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[#555555] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
+        className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full text-[#555555] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
       >
         <MoreHorizontal size={16} aria-hidden />
       </button>
 
+      <AnimatePresence>
       {menuOpen && (
-        <div
+        <motion.div
           role="menu"
+          initial={{ opacity: 0, scale: 0.95, y: -6 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: -6 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
           className="absolute right-0 top-8 z-20 flex w-36 flex-col rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] py-1 shadow-lg shadow-black/40"
         >
           <button
@@ -97,12 +103,15 @@ export default function SessionOwnerMenu({
             Edit
           </button>
           <DeleteMenuItem session={session} onDone={() => setMenuOpen(false)} />
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
+      <AnimatePresence>
       {editing && (
         <EditSessionModal session={session} onClose={() => setEditing(false)} />
       )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -205,15 +214,23 @@ function EditSessionModal({
   }
 
   return (
-    <div
+    <motion.div
       role="presentation"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       onClick={() => !saving && onClose()}
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
     >
-      <div
+      <motion.div
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-session-title"
+        initial={{ opacity: 0, y: 16, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 350, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
         className="flex w-full max-w-[440px] flex-col gap-4 rounded-t-[16px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5 sm:rounded-[16px]"
       >
@@ -335,7 +352,7 @@ function EditSessionModal({
             {saving ? "Saving…" : "Save changes"}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

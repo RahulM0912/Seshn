@@ -27,13 +27,13 @@ export function initials(name: string): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 }
 
-/** Minutes → "3h 20m" / "45m" (minutes zero-padded only when there's an hour). */
+/**
+ * Compact focus duration. Spelled-out "hr"/"min" units, kept identical to
+ * `formatFocusLong` so every surface (friends card, session card, tooltips,
+ * profile) reads the same way: "45 min" / "2 hr" / "2 hr 15 min".
+ */
 export function formatFocusTime(minutes: number): string {
-  const total = Math.max(0, Math.round(minutes));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h === 0) return `${m}m`;
-  return `${h}h ${String(m).padStart(2, "0")}m`;
+  return formatFocusLong(minutes);
 }
 
 /**
