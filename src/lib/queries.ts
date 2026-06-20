@@ -9,14 +9,21 @@ import {
 import type {
   Profile,
   Session,
+  SessionCursor,
   SessionWithProfile,
   Streak,
+  VisibilityFilter,
 } from "@/lib/database.types";
 
 // Server-side reads — the cookie-aware client runs every query as the current
 // viewer, so RLS decides what each request can see (a signed-out visitor gets
 // only `public` rows; the owner / a follower see more). Reads live here; writes
 // live in `src/lib/mutations.ts`. Filled in per slice.
+
+// How many sessions a profile/feed list loads per page (initial render and each
+// "Load more"). Keep the initial server render and the `loadSessions` action in
+// sync by both reading this.
+export const SESSIONS_PAGE_SIZE = 20;
 
 /** Look up a profile by its (unique) username. Null when it doesn't exist. */
 export async function getProfileByUsername(
@@ -32,20 +39,51 @@ export async function getProfileByUsername(
   return data;
 }
 
-/**
- * A user's sessions, newest first. Flat (no author embed) — for a profile page
- * every row belongs to the same profile the caller already has, so the caller
- * attaches it. The multi-author feed (Step 6) does its own `profiles(*)` embed.
- */
-export async function getUserSessions(userId: string): Promise<Session[]> {
+/** Look up a profile by id. Used by `loadSessions` to re-attach the author to a
+ *  profile page's "Load more" batch (every row shares one author). */
+export async function getProfileById(id: string): Promise<Profile | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) console.error("getProfileById:", error.message);
+  return data;
+}
+
+/**
+ * One page of a user's sessions, newest first. Flat (no author embed) — for a
+ * profile page every row belongs to the same profile the caller already has, so
+ * the caller attaches it. The multi-author feed (Step 6) does its own embed.
+ *
+ * Keyset pagination: pass the previous page's last-row `cursor` to get the next
+ * page (everything strictly older), capped at `SESSIONS_PAGE_SIZE`. `created_at`
+ * is the sort/cursor key with `id` as a stable tiebreak. The owner's own page can
+ * filter by `visibility` (the dropdown) — but that only ever *narrows*: RLS is
+ * the real gate, so a visitor passing `visibility: "private"` still gets nothing.
+ */
+export async function getUserSessions(
+  userId: string,
+  opts: {
+    cursor?: SessionCursor | null;
+    visibility?: VisibilityFilter;
+    limit?: number;
+  } = {},
+): Promise<Session[]> {
+  const { cursor = null, visibility = "all", limit = SESSIONS_PAGE_SIZE } = opts;
+  const supabase = await createClient();
+  let q = supabase
     .from("sessions")
     .select("*")
     .eq("user_id", userId)
-    .is("deleted_at", null)
+    .is("deleted_at", null);
+  if (visibility !== "all") q = q.eq("visibility", visibility);
+  if (cursor) q = q.lt("created_at", cursor.createdAt);
+  const { data, error } = await q
     .order("created_at", { ascending: false })
-    .limit(50);
+    .order("id", { ascending: false })
+    .limit(limit);
   if (error) console.error("getUserSessions:", error.message);
   return data ?? [];
 }
@@ -82,9 +120,9 @@ export async function getSessionById(
 
 /**
  * The "Following" feed: sessions from the viewer plus everyone they follow,
- * newest first (capped at 50). RLS enforces visibility independently — a
- * `followers`-only post from someone you follow shows up, a `private` one never
- * does — so this query doesn't re-implement that.
+ * newest first, one keyset page at a time (see `getUserSessions`). RLS enforces
+ * visibility independently — a `followers`-only post from someone you follow
+ * shows up, a `private` one never does — so this query doesn't re-implement that.
  *
  * Authors are attached in a second query rather than a PostgREST `profiles(*)`
  * embed: that embed silently returned no rows against this project's Supabase
@@ -92,7 +130,9 @@ export async function getSessionById(
  */
 export async function getFeedSessions(
   userId: string,
+  opts: { cursor?: SessionCursor | null; limit?: number } = {},
 ): Promise<SessionWithProfile[]> {
+  const { cursor = null, limit = SESSIONS_PAGE_SIZE } = opts;
   const supabase = await createClient();
 
   // My outgoing follow edges (the graph is public). Author set = me + them.
@@ -104,13 +144,17 @@ export async function getFeedSessions(
 
   const authorIds = [userId, ...(edges ?? []).map((e) => e.following_id)];
 
-  const { data: sessions, error } = await supabase
+  // Keyset page: everything strictly older than the cursor, newest first.
+  let q = supabase
     .from("sessions")
     .select("*")
     .in("user_id", authorIds)
-    .is("deleted_at", null)
+    .is("deleted_at", null);
+  if (cursor) q = q.lt("created_at", cursor.createdAt);
+  const { data: sessions, error } = await q
     .order("created_at", { ascending: false })
-    .limit(50);
+    .order("id", { ascending: false })
+    .limit(limit);
   if (error) console.error("getFeedSessions sessions:", error.message);
   if (!sessions || sessions.length === 0) return [];
 

@@ -1,3 +1,5 @@
+"use client";
+
 import { Flame, MessageCircle } from "lucide-react";
 import type { SessionWithProfile } from "@/lib/database.types";
 import { avatarColor, formatFocusTime, initials, relativeTime } from "@/lib/format";
@@ -6,9 +8,11 @@ import SessionOwnerMenu from "@/components/SessionOwnerMenu";
 import VisibilityBadge from "@/components/VisibilityBadge";
 
 // One feed/profile post. Presentational + data-driven (the landing page keeps its
-// own `FeedMockup`). Stays a Server Component — a signed-in viewer gets the
-// interactive `SessionCardFooter` (🔥 like + 💬 comments) as a client child; a
-// signed-out / public view keeps a static, read-only footer.
+// own `FeedMockup`). A Client Component so `SessionList` can append more cards
+// after a "Load more" without a server round-trip per card — it still SSRs to
+// HTML on first paint (public profiles stay crawlable). A signed-in viewer gets
+// the interactive `SessionCardFooter` (🔥 like + 💬 comments); a signed-out /
+// public view keeps a static, read-only footer.
 //
 // `viewerId` is the signed-in user (null when signed out); `liked` is whether
 // that viewer has already liked this session (from a batch lookup by the page).
