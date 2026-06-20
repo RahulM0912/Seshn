@@ -21,11 +21,19 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const session = await getSessionById(id);
-  if (!session) return { title: "Not found · Seshn" };
+  if (!session) return { title: { absolute: "Not found · Seshn" } };
+
+  // Bare title — the root layout's template appends "· Seshn".
+  const title = `${session.profiles.display_name}'s focus session`;
+  const description =
+    session.caption ??
+    `A focus session by ${session.profiles.display_name} on Seshn.`;
   return {
-    title: `${session.profiles.display_name}'s focus session · Seshn`,
-    description:
-      session.caption ?? `A focus session by ${session.profiles.display_name} on Seshn.`,
+    title,
+    description,
+    alternates: { canonical: `/session/${id}` },
+    openGraph: { title, description, type: "article", url: `/session/${id}` },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
