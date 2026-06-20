@@ -46,4 +46,5 @@ next-env.d.ts
 /docs/
 /seshn_main_app_design.html
 /.claude/
+/.agents/
 /supabase/migrations/*
