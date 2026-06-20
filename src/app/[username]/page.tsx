@@ -3,10 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Flame } from "lucide-react";
 import AppShell from "@/components/AppShell";
-import SessionCard from "@/components/SessionCard";
+import SessionList from "@/components/SessionList";
 import FocusHeatmap from "@/components/FocusHeatmap";
 import FollowButton from "@/components/FollowButton";
 import {
+  SESSIONS_PAGE_SIZE,
   getDailyFocusMinutes,
   getFocusHeatmap,
   getFollowCounts,
@@ -166,29 +167,23 @@ export default async function ProfilePage({
       {/* Focus activity heatmap */}
       <FocusHeatmap minutesByDay={heatmap} timeZone={profile.timezone} />
 
-      {/* Sessions */}
-      <h2 className="mb-3 mt-6 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[#555555]">
-        Sessions
-      </h2>
-      {sessions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] px-6 py-16 text-center">
-          <p className="text-[13px] font-medium text-white">No sessions yet</p>
-          <p className="mt-1 max-w-xs text-[12px] leading-relaxed text-[#888888]">
-            Posted focus sessions show up here.
-          </p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {sessions.map((session) => (
-            <SessionCard
-              key={session.id}
-              session={{ ...session, profiles: profile }}
-              viewerId={viewer?.id ?? null}
-              liked={likedIds.has(session.id)}
-            />
-          ))}
-        </div>
-      )}
+      {/* Sessions — keyset-paginated; the owner gets a visibility filter. */}
+      <SessionList
+        context={{ kind: "profile", profileId: profile.id }}
+        title="Sessions"
+        viewerId={viewer?.id ?? null}
+        initialSessions={sessions.map((s) => ({ ...s, profiles: profile }))}
+        initialLikedIds={[...likedIds]}
+        initialCursor={
+          sessions.length === SESSIONS_PAGE_SIZE
+            ? {
+                createdAt: sessions[sessions.length - 1].created_at,
+                id: sessions[sessions.length - 1].id,
+              }
+            : null
+        }
+        showVisibilityFilter={isOwnProfile}
+      />
     </div>
   );
 

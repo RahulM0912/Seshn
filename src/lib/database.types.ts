@@ -21,6 +21,19 @@ export type Json =
 export type Visibility = "public" | "followers" | "private";
 export type NotificationType = "like" | "comment" | "follow";
 
+// A visibility filter for the profile owner's own-sessions dropdown: a concrete
+// visibility, or "all" (no filter). Owner-only in the UI — for other viewers RLS
+// already strips the rows a filter would hide, so the dropdown isn't shown.
+export type VisibilityFilter = Visibility | "all";
+
+// Keyset pagination cursor for a session list: the (created_at, id) of the last
+// row already shown. The next page is everything strictly older. Round-trips as
+// plain JSON to the `loadSessions` server action.
+export interface SessionCursor {
+  createdAt: string;
+  id: string;
+}
+
 export interface Database {
   public: {
     Tables: {

@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import SessionCard from "@/components/SessionCard";
+import SessionList from "@/components/SessionList";
 import InviteFriendCard from "@/components/InviteFriendCard";
 import FeedTabs from "@/components/FeedTabs";
 import { createClient } from "@/lib/supabase-server";
-import { getFeedSessions, getLikedSessionIds } from "@/lib/queries";
+import {
+  SESSIONS_PAGE_SIZE,
+  getFeedSessions,
+  getLikedSessionIds,
+} from "@/lib/queries";
 
 // The real "Following" feed (Step 6): sessions from you and everyone you follow,
 // newest first, fetched on load (no realtime in v1). Per-user + per-request, so
@@ -46,16 +50,21 @@ export default async function FeedPage() {
       <FeedTabs active="following" />
 
       {sessions.length > 0 && (
-        <div className="flex flex-col gap-3">
-          {sessions.map((session) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              viewerId={user.id}
-              liked={likedIds.has(session.id)}
-            />
-          ))}
-        </div>
+        <SessionList
+          context={{ kind: "feed" }}
+          viewerId={user.id}
+          initialSessions={sessions}
+          initialLikedIds={[...likedIds]}
+          initialCursor={
+            sessions.length === SESSIONS_PAGE_SIZE
+              ? {
+                  createdAt: sessions[sessions.length - 1].created_at,
+                  id: sessions[sessions.length - 1].id,
+                }
+              : null
+          }
+          showEmptyState={false}
+        />
       )}
 
       {!hasOthers && (
