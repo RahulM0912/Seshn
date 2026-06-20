@@ -292,6 +292,14 @@ export interface Database {
         Args: Record<PropertyKey, never>;
         Returns: number;
       };
+      soft_delete_session: {
+        Args: { p_session_id: string };
+        Returns: undefined;
+      };
+      soft_delete_comment: {
+        Args: { p_comment_id: string };
+        Returns: undefined;
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
