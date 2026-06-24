@@ -4,6 +4,7 @@ import SessionList from "@/components/SessionList";
 import InviteFriendCard from "@/components/InviteFriendCard";
 import FeedTabs from "@/components/FeedTabs";
 import { createClient } from "@/lib/supabase-server";
+import { getSessionUser } from "@/lib/viewer";
 import {
   SESSIONS_PAGE_SIZE,
   getFeedSessions,
@@ -19,14 +20,13 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Feed · Seshn" };
 
 export default async function FeedPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // The (app) layout already gates this, but the page needs the id and we never
-  // trust a possibly-null user.
+  // The (authed) layout already gates this, but the page needs the id and we
+  // never trust a possibly-null user. getSessionUser() is cache()d, so this
+  // reuses the layout's auth round-trip rather than making another.
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
+  const supabase = await createClient();
   const [profileRes, sessions] = await Promise.all([
     supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
     getFeedSessions(user.id),
