@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import FeedTabs from "@/components/FeedTabs";
 import ExploreSearch from "@/components/ExploreSearch";
 import PersonRow from "@/components/PersonRow";
-import { createClient } from "@/lib/supabase-server";
+import { getSessionUser } from "@/lib/viewer";
 import {
   getDiscoverProfiles,
   getFollowing,
@@ -23,10 +23,7 @@ export default async function ExplorePage({
 }: {
   searchParams: Promise<{ q?: string | string[] }>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { q: rawQ } = await searchParams;
