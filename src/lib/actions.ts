@@ -8,12 +8,15 @@
 
 import {
   SESSIONS_PAGE_SIZE,
+  getDaySummary,
   getFeedSessions,
   getLikedSessionIds,
   getProfileById,
   getUserSessions,
+  type DaySummary,
 } from "@/lib/queries";
 import { getViewer } from "@/lib/viewer";
+import { dayInTimeZone } from "@/lib/format";
 import type {
   SessionCursor,
   SessionWithProfile,
@@ -91,4 +94,27 @@ export async function loadSessions(
       : null;
 
   return { sessions, likedSessionIds, nextCursor };
+}
+
+/**
+ * One local day's focus summary for the heatmap day-detail modal. Own-data only:
+ * the user id comes from the session (`getViewer`), never the client, so a caller
+ * can only ever read *their own* day — matching the share card route's boundary.
+ * `date` is validated as a YYYY-MM-DD that isn't in the future (in the viewer's
+ * timezone); anything else returns null and the modal shows nothing.
+ */
+export async function loadDaySummary(
+  date: string,
+): Promise<DaySummary | null> {
+  const viewer = await getViewer();
+  if (!viewer) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const profile = await getProfileById(viewer.id);
+  if (!profile) return null;
+
+  // No future days — a tampered date can't fabricate a recap.
+  if (date > dayInTimeZone(new Date(), profile.timezone)) return null;
+
+  return getDaySummary(viewer.id, profile.timezone, date);
 }

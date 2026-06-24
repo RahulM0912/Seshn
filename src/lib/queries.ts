@@ -317,6 +317,84 @@ export async function getDailyFocusMinutes(userId: string): Promise<number> {
   return data ?? 0;
 }
 
+export interface DaySummary {
+  /** Total focus minutes logged that day (user tz). */
+  focusMinutes: number;
+  /** How many sessions ended that day. */
+  sessionCount: number;
+  /** Pomodoros completed across that day's sessions. */
+  pomodoros: number;
+  /** Distinct subjects that day, most-focused first (for the share card chips). */
+  subjects: string[];
+}
+
+/**
+ * One local day's session rollup for the shareable story card — focus minutes,
+ * session count, pomodoros, and the day's subjects (most time first). `day` is a
+ * YYYY-MM-DD in the user's timezone; sessions are bucketed by the local day they
+ * *ended* in (user tz), the same boundary the streak / daily total use, so the
+ * card's total agrees with the "Today" stat and the heatmap cell.
+ *
+ * RLS-scoped: callers only ever pass their own id, so this includes the owner's
+ * private sessions too — deliberate, the owner is sharing their own recap (the
+ * card total intentionally sums all visibilities, like the daily total).
+ *
+ * One windowed read — a UTC range padded ±1 day around the local day fully
+ * covers it in any timezone (max offset ±14h) — then bucketed in app code.
+ */
+export async function getDaySummary(
+  userId: string,
+  timezone: string,
+  day: string,
+): Promise<DaySummary> {
+  const supabase = await createClient();
+  const dayStartUtc = new Date(`${day}T00:00:00Z`).getTime();
+  const since = new Date(dayStartUtc - 24 * 60 * 60 * 1000).toISOString();
+  const until = new Date(dayStartUtc + 48 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("focus_minutes, pomodoros_completed, subject, ended_at")
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .gte("ended_at", since)
+    .lt("ended_at", until);
+  if (error) console.error("getDaySummary:", error.message);
+
+  let focusMinutes = 0;
+  let sessionCount = 0;
+  let pomodoros = 0;
+  const minutesBySubject = new Map<string, number>();
+
+  for (const s of data ?? []) {
+    if (!s.ended_at) continue;
+    if (dayInTimeZone(new Date(s.ended_at), timezone) !== day) continue;
+    focusMinutes += s.focus_minutes ?? 0;
+    sessionCount += 1;
+    pomodoros += s.pomodoros_completed ?? 0;
+    const subject = s.subject?.trim();
+    if (subject) {
+      minutesBySubject.set(
+        subject,
+        (minutesBySubject.get(subject) ?? 0) + (s.focus_minutes ?? 0),
+      );
+    }
+  }
+
+  const subjects = [...minutesBySubject.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([subject]) => subject);
+
+  return { focusMinutes, sessionCount, pomodoros, subjects };
+}
+
+/** Today's rollup — `getDaySummary` for the user's current local day. */
+export async function getTodaySummary(
+  userId: string,
+  timezone: string,
+): Promise<DaySummary> {
+  return getDaySummary(userId, timezone, dayInTimeZone(new Date(), timezone));
+}
+
 /**
  * Focus minutes per local day across a user's whole history, for the profile
  * heatmap (Step 15). Buckets `focus_minutes` by the day each session *ended* in
