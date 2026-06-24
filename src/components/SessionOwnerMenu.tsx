@@ -4,15 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
+  Check,
   Globe,
+  Link2,
   Lock,
+  Loader2,
   MoreHorizontal,
   Pencil,
+  Share2,
   Trash2,
   Users,
   X,
 } from "lucide-react";
 import { softDeleteSession, updateSession, type SessionEdit } from "@/lib/mutations";
+import { copySessionLink, shareCard } from "@/lib/share-card";
 import type { SessionWithProfile, Visibility } from "@/lib/database.types";
 
 // Owner-only controls on a SessionCard (Step 14). Rendered in the card header
@@ -55,7 +60,54 @@ export default function SessionOwnerMenu({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareDone, setShareDone] = useState("");
+  const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Adaptive share: native sheet on mobile, copy-to-clipboard on desktop. This
+  // menu stays mounted (it's the card header), so updating state here is safe
+  // even though the sheet takes over on mobile. On desktop the menu flashes
+  // "Image copied" before closing so the silent clipboard copy is visible.
+  async function handleShareStory() {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const outcome = await shareCard({ session: session.id });
+      setSharing(false);
+      if (outcome === "copied") {
+        setShareDone("Image copied");
+        setTimeout(() => {
+          setShareDone("");
+          setMenuOpen(false);
+        }, 1100);
+        return;
+      }
+      setMenuOpen(false); // shared (native) / downloaded — no flash needed
+    } catch (err) {
+      setSharing(false);
+      // Dismissing the native sheet rejects with AbortError — a normal cancel.
+      if ((err as Error).name !== "AbortError") {
+        console.error("shareCard:", err);
+      }
+      setMenuOpen(false);
+    }
+  }
+
+  // Copy the public permalink; flash "Copied!" then close. Public-only (the item
+  // isn't rendered otherwise), since only a public session is openable by anyone.
+  async function handleCopyLink() {
+    const ok = await copySessionLink(session.id);
+    if (!ok) {
+      setMenuOpen(false);
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+      setMenuOpen(false);
+    }, 1000);
+  }
 
   // Close the dropdown on outside click / Escape (the modals manage their own).
   useEffect(() => {
@@ -97,8 +149,39 @@ export default function SessionOwnerMenu({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -6 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
-          className="absolute right-0 top-8 z-20 flex w-36 flex-col rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] py-1 shadow-lg shadow-black/40"
+          className="absolute right-0 top-8 z-20 flex w-40 flex-col rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] py-1 shadow-lg shadow-black/40"
         >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleShareStory}
+            disabled={sharing}
+            className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-[12px] text-[#CCCCCC] transition-colors hover:bg-[#252525] hover:text-white focus-visible:outline-none focus-visible:bg-[#252525] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {shareDone ? (
+              <Check size={13} className="text-[#22C55E]" aria-hidden />
+            ) : sharing ? (
+              <Loader2 size={13} className="animate-spin" aria-hidden />
+            ) : (
+              <Share2 size={13} aria-hidden />
+            )}
+            {shareDone || (sharing ? "Preparing…" : "Share")}
+          </button>
+          {session.visibility === "public" && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleCopyLink}
+              className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-[12px] text-[#CCCCCC] transition-colors hover:bg-[#252525] hover:text-white focus-visible:outline-none focus-visible:bg-[#252525]"
+            >
+              {copied ? (
+                <Check size={13} className="text-[#22C55E]" aria-hidden />
+              ) : (
+                <Link2 size={13} aria-hidden />
+              )}
+              {copied ? "Copied!" : "Copy link"}
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"

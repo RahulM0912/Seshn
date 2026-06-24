@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import SessionList from "@/components/SessionList";
 import FocusHeatmap from "@/components/FocusHeatmap";
 import FollowButton from "@/components/FollowButton";
+import ShareTodayButton from "@/components/ShareTodayButton";
 import {
   SESSIONS_PAGE_SIZE,
   getDailyFocusMinutes,
@@ -120,6 +121,11 @@ export default async function ProfilePage({
       </Link>
     ) : null;
 
+  // On your own profile the follow slot is empty — reuse it for "Share today",
+  // but only once there's something to brag about (focus logged today).
+  const topRightSlot =
+    isOwnProfile && dailyMinutes > 0 ? <ShareTodayButton /> : followSlot;
+
   const body = (
     <div className="mx-auto max-w-2xl px-4 py-6">
       {/* Profile header */}
@@ -145,7 +151,7 @@ export default async function ProfilePage({
               </p>
             )}
           </div>
-          {followSlot}
+          {topRightSlot}
         </div>
 
         <div className="mt-5 flex flex-wrap items-end gap-6">
@@ -165,7 +171,11 @@ export default async function ProfilePage({
       </section>
 
       {/* Focus activity heatmap */}
-      <FocusHeatmap minutesByDay={heatmap} timeZone={profile.timezone} />
+      <FocusHeatmap
+        minutesByDay={heatmap}
+        timeZone={profile.timezone}
+        isOwnProfile={isOwnProfile}
+      />
 
       {/* Sessions — keyset-paginated; the owner gets a visibility filter. */}
       <SessionList

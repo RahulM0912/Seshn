@@ -10,6 +10,7 @@ import {
   type HeatmapDay,
   type HeatmapRange,
 } from "@/lib/format";
+import DaySummaryModal from "@/components/DaySummaryModal";
 
 // Profile focus heatmap (Step 15) — a GitHub-style contribution grid where each
 // cell is a day and its green deepens with the minutes focused that day. The grid
@@ -52,9 +53,12 @@ const TIP_HEIGHT = 48;
 export default function FocusHeatmap({
   minutesByDay,
   timeZone,
+  isOwnProfile = false,
 }: {
   minutesByDay: Record<string, number>;
   timeZone: string;
+  /** On the owner's own profile, day cells with focus open a share-able recap. */
+  isOwnProfile?: boolean;
 }) {
   // Dropdown options: "Current" (rolling 12 months) plus every year from now back
   // to the earliest year with logged focus. New users see just Current + this year.
@@ -77,6 +81,7 @@ export default function FocusHeatmap({
   const menuRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<Hover | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const { weeks, monthLabels, totalMinutes, activeDays } = useMemo(
     () => buildFocusHeatmap(minutesByDay, view, timeZone),
@@ -253,6 +258,11 @@ export default function FocusHeatmap({
                   <span
                     key={row}
                     onMouseEnter={(e) => showTip(e, cell)}
+                    onClick={
+                      isOwnProfile && cell.minutes > 0
+                        ? () => setSelectedDate(cell.date)
+                        : undefined
+                    }
                     style={{ backgroundColor: LEVEL_BG[cell.level] }}
                     className="block aspect-square w-full cursor-pointer rounded-[2px]"
                   />
@@ -303,6 +313,16 @@ export default function FocusHeatmap({
         ))}
         <span className="text-[9px] text-[#555555]">More</span>
       </div>
+
+      {/* Owner-only: clicking a day opens its share-able recap. Keyed by date so
+          each open mounts fresh (loading) without resetting state in an effect. */}
+      {isOwnProfile && selectedDate && (
+        <DaySummaryModal
+          key={selectedDate}
+          date={selectedDate}
+          onClose={() => setSelectedDate(null)}
+        />
+      )}
     </section>
   );
 }
