@@ -1,6 +1,6 @@
 // Timer favicon dot (Step 15). While a session runs the tab icon becomes a
-// solid status dot (green = focusing, gray = paused, blue = break) so the
-// timer stays glanceable from another tab. Next.js emits the real icon links
+// solid status dot (green = running, gray = paused) so the timer stays
+// glanceable from another tab. Next.js emits the real icon links
 // from src/app/favicon.ico + icon.svg — we detach them while overriding and
 // re-attach on reset, so going idle restores the branded icon exactly.
 

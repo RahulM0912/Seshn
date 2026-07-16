@@ -136,8 +136,8 @@ export default function TimerSettingsModal({
         <div className="scrollbar-slim flex flex-1 flex-col gap-5 overflow-y-auto p-5">
           {locked && (
             <p className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2 text-[11px] leading-relaxed text-[#888888]">
-              A session is running — durations are locked. Sound can still be
-              changed. Finish or restart the timer to edit lengths.
+              A session is running — durations are locked. Sound and auto-start
+              can still be changed. Finish or restart the timer to edit lengths.
             </p>
           )}
 
@@ -200,6 +200,29 @@ export default function TimerSettingsModal({
               You&apos;re aiming for {sessionGoal} pomodoro{sessionGoal === 1 ? "" : "s"}{" "}
               (the dots on the card), with a long break after every{" "}
               {longBreakInterval}.
+            </p>
+          </section>
+
+          {/* Flow — applies live (like sound): no phase length changes, so not
+              idle-locked. Takes effect at the next boundary. */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
+              Flow
+            </p>
+            <Toggle
+              label="Auto-start breaks"
+              checked={t.autoStartBreaks}
+              onChange={(v) => t.setFlow({ autoStartBreaks: v })}
+            />
+            <Toggle
+              label="Auto-start next focus"
+              checked={t.autoStartFocus}
+              onChange={(v) => t.setFlow({ autoStartFocus: v })}
+            />
+            <p className="text-[11px] leading-relaxed text-[#555555]">
+              Shortcuts: <kbd className="text-[#888888]">Space</kbd> start/pause ·{" "}
+              <kbd className="text-[#888888]">S</kbd> skip break ·{" "}
+              <kbd className="text-[#888888]">E</kbd> end session.
             </p>
           </section>
 

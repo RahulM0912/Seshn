@@ -54,6 +54,7 @@ function useTimerSounds(t: TimerView): void {
 export default function TimerCard() {
   const t = useTimer();
   const openModal = useSessionPostStore((s) => s.openModal);
+  const postOpen = useSessionPostStore((s) => s.open);
   const [showSettings, setShowSettings] = useState(false);
   useTimerSounds(t);
   useTimerBrowserEffects(t); // tab title, favicon dot, notifications, wake lock
@@ -72,6 +73,32 @@ export default function TimerCard() {
     if (t.running) t.pause(); // freeze the clock behind the modal
     openModal(pending);
   };
+
+  // Keyboard shortcuts (Step 16): Space = start/pause/resume, S = skip break,
+  // E = end session. Off while a modal is open; skipped while typing or when an
+  // interactive element has focus (Space would double-fire a focused button).
+  // Handlers go through a ref so the listener isn't re-bound every second.
+  const keyActions = useRef({ onPrimary, onEndSession, skipBreak: t.skipBreak });
+  keyActions.current = { onPrimary, onEndSession, skipBreak: t.skipBreak };
+  useEffect(() => {
+    if (showSettings || postOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, button, a, [contenteditable=true]"))
+        return;
+      if (e.key === " ") {
+        e.preventDefault(); // keep the page from scrolling
+        keyActions.current.onPrimary();
+      } else if (e.key === "s" || e.key === "S") {
+        keyActions.current.skipBreak(); // no-op unless on a break
+      } else if (e.key === "e" || e.key === "E") {
+        keyActions.current.onEndSession(); // no-op while idle
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showSettings, postOpen]);
 
   const primaryLabel = t.running ? "Pause" : t.phase === "idle" ? "Start" : "Resume";
   const PrimaryIcon = t.running ? Pause : Play;
@@ -152,6 +179,7 @@ export default function TimerCard() {
         <button
           type="button"
           onClick={onPrimary}
+          aria-keyshortcuts="Space"
           className="flex min-h-[42px] flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] bg-[#22C55E] text-[13px] font-medium text-[#0A0A0A] transition-opacity hover:opacity-90"
         >
           <PrimaryIcon size={15} aria-hidden />
@@ -175,6 +203,7 @@ export default function TimerCard() {
           <motion.button
             type="button"
             onClick={t.skipBreak}
+            aria-keyshortcuts="S"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
@@ -194,6 +223,7 @@ export default function TimerCard() {
           <motion.button
             type="button"
             onClick={onEndSession}
+            aria-keyshortcuts="E"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}

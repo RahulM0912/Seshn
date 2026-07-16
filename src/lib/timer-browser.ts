@@ -12,10 +12,9 @@ import { usePathname } from "next/navigation";
 import type { TimerView } from "@/lib/timer-store";
 import { resetFavicon, setFaviconDot } from "@/lib/favicon";
 
-// Matches the break accent planned for Step 16's phase identity; paused = the
-// UI's muted gray. Focus = the brand green.
-const DOT_FOCUS = "#22C55E";
-const DOT_BREAK = "#3B82F6";
+// Running (focus or break) = the brand green; paused = the UI's muted gray.
+// (A blue break dot was tried and rejected — the app stays single-accent.)
+const DOT_RUNNING = "#22C55E";
 const DOT_PAUSED = "#737373";
 
 // Ask once, and only from a real user gesture (the Start/Resume click) — never
@@ -51,9 +50,7 @@ function useTimerTabState(t: TimerView): void {
       ? `${t.clock} · ${label} — Seshn`
       : `⏸ ${t.clock} · Paused — Seshn`;
     overrode.current = true;
-    setFaviconDot(
-      !t.running ? DOT_PAUSED : t.phase === "focus" ? DOT_FOCUS : DOT_BREAK,
-    );
+    setFaviconDot(t.running ? DOT_RUNNING : DOT_PAUSED);
   }, [t.clock, t.phase, t.running, t.isLongBreak, pathname]);
 
   // Unmount with a session underway (e.g. navigating to a page without the
