@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import SessionList from "@/components/SessionList";
 import InviteFriendCard from "@/components/InviteFriendCard";
 import FeedTabs from "@/components/FeedTabs";
+import WeeklyRecapCard from "@/components/WeeklyRecapCard";
 import { createClient } from "@/lib/supabase-server";
 import { getSessionUser } from "@/lib/viewer";
 import {
   SESSIONS_PAGE_SIZE,
   getFeedSessions,
   getLikedSessionIds,
+  getWeeklyRecap,
 } from "@/lib/queries";
 
 // The real "Following" feed (Step 6): sessions from you and everyone you follow,
@@ -27,9 +29,11 @@ export default async function FeedPage() {
   if (!user) redirect("/login");
 
   const supabase = await createClient();
-  const [profileRes, sessions] = await Promise.all([
+  const [profileRes, sessions, recap] = await Promise.all([
     supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
     getFeedSessions(user.id),
+    // Null outside Mon–Tue (user tz) or when last week was empty (Step 18).
+    getWeeklyRecap(user.id),
   ]);
   const username = profileRes.data?.username ?? "";
 
@@ -48,6 +52,8 @@ export default async function FeedPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-3 p-4">
       {/* Following / Explore tabs — both live now (Step 12). */}
       <FeedTabs active="following" />
+
+      {recap && <WeeklyRecapCard recap={recap} />}
 
       {sessions.length > 0 && (
         <SessionList

@@ -583,3 +583,102 @@ export async function getFriendsActivity(
     })
     .slice(0, limit);
 }
+
+export interface WeeklyRecap {
+  /** Focus minutes over the just-completed ISO week (Mon–Sun, user tz). */
+  lastWeekMinutes: number;
+  /** The week before that — the comparison baseline (0 = no baseline). */
+  prevWeekMinutes: number;
+  /** Subject with the most minutes last week (raw string, null if untagged). */
+  topSubject: string | null;
+  /** Days of last week with at least one session. */
+  activeDays: number;
+  /** Last week's Monday (YYYY-MM-DD, user tz) — the card's dismiss key. */
+  weekKey: string;
+}
+
+/** Day-string arithmetic (YYYY-MM-DD + n days) — tz-free once bucketed. */
+function addDaysToDayString(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The weekly recap card's data (Step 18): last week's focus vs the week
+ * before, top subject, active days — all bucketed to the user's local days
+ * with `ended_at`, the same boundary the streak trigger uses. Returns null
+ * outside Mon–Tue (user tz — the only days the card shows) and null when last
+ * week had no sessions (nothing to recap), so the feed can just null-check.
+ */
+export async function getWeeklyRecap(userId: string): Promise<WeeklyRecap | null> {
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .maybeSingle();
+  const timezone = profile?.timezone ?? "Asia/Kolkata";
+
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+  }).format(new Date());
+  if (weekday !== "Mon" && weekday !== "Tue") return null;
+
+  // Local-day window math: this week's Monday, then the two prior weeks.
+  const today = dayInTimeZone(new Date(), timezone);
+  const thisMonday = addDaysToDayString(today, weekday === "Mon" ? 0 : -1);
+  const lastMonday = addDaysToDayString(thisMonday, -7);
+  const prevMonday = addDaysToDayString(thisMonday, -14);
+
+  // 16 days of sessions covers both weeks in any timezone.
+  const since = new Date(Date.now() - 16 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: rows, error } = await supabase
+    .from("sessions")
+    .select("focus_minutes, subject, ended_at")
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .gte("ended_at", since);
+  if (error) {
+    console.error("getWeeklyRecap:", error.message);
+    return null;
+  }
+
+  let lastWeekMinutes = 0;
+  let prevWeekMinutes = 0;
+  const daysActive = new Set<string>();
+  const bySubject = new Map<string, number>();
+  for (const row of rows ?? []) {
+    if (!row.ended_at) continue;
+    const day = dayInTimeZone(new Date(row.ended_at), timezone);
+    if (day >= lastMonday && day < thisMonday) {
+      lastWeekMinutes += row.focus_minutes;
+      daysActive.add(day);
+      const subject = row.subject?.trim();
+      if (subject) {
+        bySubject.set(subject, (bySubject.get(subject) ?? 0) + row.focus_minutes);
+      }
+    } else if (day >= prevMonday && day < lastMonday) {
+      prevWeekMinutes += row.focus_minutes;
+    }
+  }
+  if (lastWeekMinutes === 0) return null;
+
+  let topSubject: string | null = null;
+  let topMinutes = 0;
+  for (const [subject, minutes] of bySubject) {
+    if (minutes > topMinutes) {
+      topSubject = subject;
+      topMinutes = minutes;
+    }
+  }
+
+  return {
+    lastWeekMinutes,
+    prevWeekMinutes,
+    topSubject,
+    activeDays: daysActive.size,
+    weekKey: lastMonday,
+  };
+}

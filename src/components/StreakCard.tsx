@@ -1,5 +1,6 @@
 import { Flame, Check, Zap } from "lucide-react";
 import { getStreakCard } from "@/lib/queries";
+import StreakNudge from "@/components/StreakNudge";
 
 // The streak card in the sidebar (Step 11): 🔥 number + nudge + a 7-day strip
 // (done / today / pending), per the mockup. An async Server Component — it reads
@@ -62,6 +63,10 @@ export default async function StreakCard({ userId }: { userId: string }) {
           </div>
         ))}
       </div>
+
+      {/* Evening "streak ends tonight" reminder — client child; decides on the
+          device clock and hides itself once posted/dismissed (Step 18). */}
+      <StreakNudge current={current} postedToday={postedToday} />
     </div>
   );
 }
