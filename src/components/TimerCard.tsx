@@ -9,6 +9,10 @@ import {
   type TimerView,
 } from "@/lib/timer-store";
 import { playAlarm, playTick, unlockAudio } from "@/lib/timer-sounds";
+import {
+  maybeRequestNotificationPermission,
+  useTimerBrowserEffects,
+} from "@/lib/timer-browser";
 import { useSessionPostStore } from "@/lib/session-post-store";
 import TimerSettingsModal from "@/components/TimerSettingsModal";
 
@@ -52,9 +56,11 @@ export default function TimerCard() {
   const openModal = useSessionPostStore((s) => s.openModal);
   const [showSettings, setShowSettings] = useState(false);
   useTimerSounds(t);
+  useTimerBrowserEffects(t); // tab title, favicon dot, notifications, wake lock
 
   const onPrimary = () => {
     unlockAudio(); // unlock the AudioContext on this user gesture
+    maybeRequestNotificationPermission(); // ditto — needs a user gesture
     if (t.running) t.pause();
     else if (t.phase === "idle") t.start();
     else t.resume();
