@@ -4,15 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  Flame,
   Globe,
   Link2,
   Loader2,
   Lock,
   Share2,
+  Trophy,
   Users,
   X,
 } from "lucide-react";
 import { postSession } from "@/lib/mutations";
+import { getStreakCount } from "@/lib/client-queries";
 import { formatFocusLong } from "@/lib/format";
 import {
   copySessionLink,
@@ -74,6 +77,23 @@ function PostSessionForm({
   const [shareNote, setShareNote] = useState("");
   const [shareError, setShareError] = useState("");
 
+  const goalMet = pending.pomodorosCompleted >= pending.pomodorosPlanned;
+
+  // Streak celebration (Step 17): snapshot the streak when the modal opens,
+  // re-read it after the insert (the DB trigger updates it), and the success
+  // step counts up the difference. Two lazy reads, modal-open only.
+  const [streakBefore, setStreakBefore] = useState<number | null>(null);
+  const [streakAfter, setStreakAfter] = useState<number | null>(null);
+  useEffect(() => {
+    let on = true;
+    void getStreakCount(userId).then((n) => {
+      if (on) setStreakBefore(n);
+    });
+    return () => {
+      on = false;
+    };
+  }, [userId]);
+
   // Refresh the server-rendered stats (streak / Today / heatmap) on the way out —
   // deferred to here so they update whether the user shares or just dismisses.
   function finish() {
@@ -123,6 +143,7 @@ function PostSessionForm({
 
     resetTimer(); // clear the timer back to idle now that it's posted
     notifyPosted(saved); // a mounted feed/profile list prepends the new card now
+    void getStreakCount(userId).then(setStreakAfter); // pops into the success step
     setSubmitting(false);
     setPosted(saved); // advance to the share step (stats refresh on finish())
   }
@@ -190,9 +211,12 @@ function PostSessionForm({
             <div>
               <h2
                 id="post-success-title"
-                className="text-[15px] font-semibold text-white"
+                className="flex items-center gap-1.5 text-[15px] font-semibold text-white"
               >
-                Session posted
+                {goalMet && (
+                  <Trophy size={15} className="text-[#22C55E]" aria-hidden />
+                )}
+                {goalMet ? "Goal crushed — posted" : "Session posted"}
               </h2>
               <p className="mt-0.5 text-[12px] text-[#888888]">
                 <span className="text-[#22C55E]">
@@ -210,6 +234,22 @@ function PostSessionForm({
               <X size={15} aria-hidden />
             </button>
           </div>
+
+          {streakAfter !== null && streakAfter > 0 && (
+            <div className="flex items-center justify-center gap-2 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-3 py-3">
+              <Flame size={16} className="text-[#22C55E]" aria-hidden />
+              <span className="text-[13px] font-medium text-[#22C55E]">
+                {streakBefore !== null && streakAfter > streakBefore ? (
+                  <>
+                    <StreakCountUp from={streakBefore} to={streakAfter} /> day
+                    streak{streakAfter === 1 ? " — started!" : " — extended!"}
+                  </>
+                ) : (
+                  <>{streakAfter} day streak</>
+                )}
+              </span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -278,9 +318,14 @@ function PostSessionForm({
           <div>
             <h2
               id="post-session-title"
-              className="text-[15px] font-semibold text-white"
+              className="flex items-center gap-1.5 text-[15px] font-semibold text-white"
             >
-              Post your session
+              {goalMet && (
+                <Trophy size={15} className="text-[#22C55E]" aria-hidden />
+              )}
+              {goalMet
+                ? `Goal crushed — ${pending.pomodorosCompleted}/${pending.pomodorosPlanned}`
+                : "Post your session"}
             </h2>
             <p className="mt-0.5 text-[12px] text-[#888888]">
               <span className="text-[#22C55E]">
@@ -423,4 +468,30 @@ function PostSessionForm({
       </div>
     </div>
   );
+}
+
+// Counts the streak number up (e.g. 5 → 6) in the success step. Hand-rolled
+// rAF tween — no animation dependency; reduced-motion jumps straight to the end.
+function StreakCountUp({ from, to }: { from: number; to: number }) {
+  const [n, setN] = useState(from);
+  useEffect(() => {
+    if (
+      from === to ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setN(to);
+      return;
+    }
+    const startedAt = performance.now();
+    const duration = 700;
+    let raf: number;
+    const frame = (now: number) => {
+      const p = Math.min(1, (now - startedAt) / duration);
+      setN(Math.round(from + (to - from) * p));
+      if (p < 1) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to]);
+  return <span className="tabular-nums">{n}</span>;
 }

@@ -140,3 +140,22 @@ export async function getNotifications(
     })
     .filter((n): n is NotificationFeedItem => n !== null);
 }
+
+/**
+ * The viewer's current streak count, straight off the `streaks` row (0 before
+ * the first session or on error). Used by the post-session success step to
+ * celebrate an extension — it compares the value fetched at modal-open with the
+ * one fetched after the insert, so no timezone math is needed here.
+ */
+export async function getStreakCount(userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("streaks")
+    .select("current_streak")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("getStreakCount:", error.message);
+    return 0;
+  }
+  return data?.current_streak ?? 0;
+}

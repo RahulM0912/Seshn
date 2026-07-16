@@ -6,8 +6,10 @@ import { Pause, Play, RefreshCw, Settings, SkipForward, Square } from "lucide-re
 import {
   getPendingSession,
   useTimer,
+  useTimerStore,
   type TimerView,
 } from "@/lib/timer-store";
+import { burstConfetti } from "@/lib/confetti";
 import { playAlarm, playTick, unlockAudio } from "@/lib/timer-sounds";
 import {
   maybeRequestNotificationPermission,
@@ -100,6 +102,28 @@ export default function TimerCard() {
     return () => window.removeEventListener("keydown", onKey);
   }, [showSettings, postOpen]);
 
+  // Goal-hit celebration (Step 17): confetti fires the moment the pomodoro
+  // count *crosses* the session goal — transition-based (prev ref), so a
+  // refresh mid-met-session can't re-fire it. Seeded only after hydration
+  // (hydrate jumps the count from 0 in one render). Bursts from the card.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const hydrated = useTimerStore((s) => s.hydrated);
+  const prevPomos = useRef<number | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const prev = prevPomos.current;
+    prevPomos.current = t.pomodorosCompleted;
+    if (prev === null || t.phase === "idle") return;
+    if (prev < t.sessionGoal && t.pomodorosCompleted >= t.sessionGoal) {
+      const rect = cardRef.current?.getBoundingClientRect();
+      burstConfetti(
+        rect
+          ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 3 }
+          : undefined,
+      );
+    }
+  }, [hydrated, t.pomodorosCompleted, t.sessionGoal, t.phase]);
+
   const primaryLabel = t.running ? "Pause" : t.phase === "idle" ? "Start" : "Resume";
   const PrimaryIcon = t.running ? Pause : Play;
   // Dots = progress toward the session goal (the long-break cadence is separate).
@@ -111,7 +135,10 @@ export default function TimerCard() {
   const label = phaseLabel(t);
 
   return (
-    <div className="rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-4">
+    <div
+      ref={cardRef}
+      className="rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-4"
+    >
       <div className="mb-3.5 flex items-center justify-between">
         <span className="text-[13px] font-medium text-white">Your session</span>
         <div className="flex items-center gap-1.5">
@@ -169,7 +196,9 @@ export default function TimerCard() {
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 500, damping: 20 }}
             className={`h-[9px] w-[9px] rounded-full ${
-              i < filledDots ? "bg-[#22C55E]" : "bg-[#2A2A2A]"
+              i < filledDots
+                ? "bg-[#22C55E] shadow-[0_0_6px_rgba(34,197,94,0.55)]"
+                : "bg-[#2A2A2A]"
             }`}
           />
         ))}
