@@ -8,6 +8,7 @@ import { LayoutList, LogOut, Settings, User, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { avatarColor, initials } from "@/lib/format";
 import DailyGoalRing from "@/components/DailyGoalRing";
+import InstallAppMenuItem from "@/components/InstallAppMenuItem";
 import NotificationsBell from "@/components/NotificationsBell";
 
 export default function AppNavbar({
@@ -150,6 +151,8 @@ export default function AppNavbar({
                 <Settings size={15} aria-hidden />
                 Settings
               </Link>
+              {/* Hidden unless the browser offers an install path (Step 25). */}
+              <InstallAppMenuItem onInstalled={() => setMenuOpen(false)} />
               <button
                 type="button"
                 role="menuitem"

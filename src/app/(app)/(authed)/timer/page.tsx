@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import TimerCard from "@/components/TimerCard";
 import StreakCard from "@/components/StreakCard";
 import FriendsActivityCard from "@/components/FriendsActivityCard";
+import InstallHint from "@/components/InstallHint";
 import MobileOnlyRedirect from "@/components/MobileOnlyRedirect";
 import { getSessionUser } from "@/lib/viewer";
 
@@ -29,6 +30,8 @@ export default async function TimerPage() {
       <TimerCard userId={user.id} effects={false} />
       <StreakCard userId={user.id} />
       <FriendsActivityCard userId={user.id} />
+      {/* One-time "add to home screen" nudge — never again after dismiss. */}
+      <InstallHint />
     </div>
   );
 }
