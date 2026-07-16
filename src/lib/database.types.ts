@@ -46,6 +46,7 @@ export interface Database {
           bio: string | null;
           timezone: string;
           onboarded: boolean;
+          daily_goal_minutes: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -57,6 +58,7 @@ export interface Database {
           bio?: string | null;
           timezone?: string;
           onboarded?: boolean;
+          daily_goal_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -68,6 +70,7 @@ export interface Database {
           bio?: string | null;
           timezone?: string;
           onboarded?: boolean;
+          daily_goal_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };

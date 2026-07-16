@@ -28,6 +28,7 @@ export default async function AppLayout({
         userId={viewer.id}
         username={viewer.username}
         displayName={viewer.displayName}
+        dailyGoalMinutes={viewer.dailyGoalMinutes}
       >
         {children}
       </AppShell>

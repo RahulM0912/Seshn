@@ -149,6 +149,41 @@ export async function getNotifications(
  * one fetched after the insert, so no timezone math is needed here.
  */
 /**
+ * The viewer's stored daily focus goal in minutes (null = off) — read when the
+ * timer settings modal opens so its "Daily target" stepper starts from the
+ * saved value (Step 20). Null on error too: the modal then simply shows "Off",
+ * and no write happens unless the user touches the stepper.
+ */
+export async function getDailyGoal(userId: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("daily_goal_minutes")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("getDailyGoal:", error.message);
+    return null;
+  }
+  return data?.daily_goal_minutes ?? null;
+}
+
+/**
+ * Today's focus minutes for a user, in their timezone — the same DB RPC the
+ * server-side `getDailyFocusMinutes` (queries.ts) uses, callable from the
+ * browser for the navbar goal ring (Step 20). 0 on error.
+ */
+export async function getDailyFocusMinutes(userId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("get_daily_focus_minutes", {
+    p_user_id: userId,
+  });
+  if (error) {
+    console.error("getDailyFocusMinutes:", error.message);
+    return 0;
+  }
+  return data ?? 0;
+}
+
+/**
  * The viewer's most recently used subject tags, newest first — the tap-to-fill
  * chips above the subject input in the post modal (Step 19). Reads a window of
  * the user's own recent sessions (RLS: owners see all visibilities), splits

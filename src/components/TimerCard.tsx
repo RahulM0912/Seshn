@@ -53,7 +53,7 @@ function useTimerSounds(t: TimerView): void {
 // thing shown on mobile). All state/persistence is in `@/lib/timer-store`; this
 // component is pure presentation + dispatching actions. Visual values track the
 // mockup's `.timer-card` (docs/design.md → App design language).
-export default function TimerCard() {
+export default function TimerCard({ userId }: { userId: string }) {
   const t = useTimer();
   const openModal = useSessionPostStore((s) => s.openModal);
   const postOpen = useSessionPostStore((s) => s.open);
@@ -161,7 +161,11 @@ export default function TimerCard() {
 
       <AnimatePresence>
         {showSettings && (
-          <TimerSettingsModal t={t} onClose={() => setShowSettings(false)} />
+          <TimerSettingsModal
+            t={t}
+            userId={userId}
+            onClose={() => setShowSettings(false)}
+          />
         )}
       </AnimatePresence>
 

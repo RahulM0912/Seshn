@@ -13,11 +13,14 @@ export default function AppShell({
   userId,
   username,
   displayName,
+  dailyGoalMinutes,
   children,
 }: {
   userId: string;
   username: string;
   displayName: string;
+  /** Daily focus goal in minutes; null hides the navbar progress ring. */
+  dailyGoalMinutes: number | null;
   children: ReactNode;
 }) {
   // `fixed inset-0` pins the frame to the viewport so the document itself never
@@ -26,7 +29,12 @@ export default function AppShell({
   // window scroll too, which produced a stray third scrollbar.)
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#0A0A0A]">
-      <AppNavbar userId={userId} username={username} displayName={displayName} />
+      <AppNavbar
+        userId={userId}
+        username={username}
+        displayName={displayName}
+        dailyGoalMinutes={dailyGoalMinutes}
+      />
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[1fr_320px] md:overflow-hidden lg:grid-cols-[1fr_400px]">
         <main className="order-2 md:order-1 md:overflow-y-auto md:border-r-[0.5px] md:border-[#2A2A2A]">
           {children}

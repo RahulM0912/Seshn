@@ -43,7 +43,7 @@ function FriendsSkeleton() {
 export default function AppSidebar({ userId }: { userId: string }) {
   return (
     <aside className="scrollbar-slim order-1 flex flex-col gap-3 p-4 md:order-2 md:overflow-y-auto">
-      <TimerCard />
+      <TimerCard userId={userId} />
       <div className="hidden flex-col gap-3 md:flex">
         <Suspense fallback={<StreakSkeleton />}>
           <StreakCard userId={userId} />

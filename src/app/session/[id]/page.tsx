@@ -78,6 +78,7 @@ export default async function SessionPage({
         userId={viewer.id}
         username={viewer.username}
         displayName={viewer.displayName}
+        dailyGoalMinutes={viewer.dailyGoalMinutes}
       >
         {body}
       </AppShell>

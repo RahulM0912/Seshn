@@ -7,16 +7,20 @@ import { AnimatePresence, motion } from "framer-motion";
 import { LayoutList, LogOut, Settings, User, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { avatarColor, initials } from "@/lib/format";
+import DailyGoalRing from "@/components/DailyGoalRing";
 import NotificationsBell from "@/components/NotificationsBell";
 
 export default function AppNavbar({
   userId,
   username,
   displayName,
+  dailyGoalMinutes,
 }: {
   userId: string;
   username: string;
   displayName: string;
+  /** Daily focus goal in minutes; null hides the avatar progress ring. */
+  dailyGoalMinutes: number | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -93,6 +97,9 @@ export default function AppNavbar({
         {/* Unread dot + inbox panel; hides itself while a focus block runs. */}
         <NotificationsBell viewerUsername={username} />
         <div ref={menuRef} className="relative">
+          {/* Goal progress ring around the avatar (Step 20) — absolutely
+              positioned so it never shifts layout; hidden when no goal is set. */}
+          <DailyGoalRing userId={userId} goalMinutes={dailyGoalMinutes} />
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}

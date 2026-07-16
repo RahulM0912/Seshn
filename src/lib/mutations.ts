@@ -228,3 +228,15 @@ export function updateProfile(userId: string, fields: ProfileEdit) {
     })
     .eq("id", userId);
 }
+
+// Set / clear the daily focus goal (Step 20) — written from the TIMER settings
+// modal (it lives with the other focus config, not the profile form), which is
+// why it's its own tiny mutation rather than part of ProfileEdit. Null = off
+// (the navbar ring hides). Account-level, unlike the rest of the timer modal's
+// device-local store. RLS scopes the update to the caller's own row.
+export function updateDailyGoal(userId: string, minutes: number | null) {
+  return supabase
+    .from("profiles")
+    .update({ daily_goal_minutes: minutes })
+    .eq("id", userId);
+}
