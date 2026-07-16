@@ -10,6 +10,7 @@
 // PostgREST `profiles(*)` embed, which returned no rows against this instance.
 
 import { supabase } from "@/lib/supabase";
+import { splitSubjects } from "@/lib/format";
 import type {
   CommentWithProfile,
   NotificationFeedItem,
@@ -147,6 +148,43 @@ export async function getNotifications(
  * celebrate an extension — it compares the value fetched at modal-open with the
  * one fetched after the insert, so no timezone math is needed here.
  */
+/**
+ * The viewer's most recently used subject tags, newest first — the tap-to-fill
+ * chips above the subject input in the post modal (Step 19). Reads a window of
+ * the user's own recent sessions (RLS: owners see all visibilities), splits
+ * comma-joined subjects into tags, and dedupes case-insensitively. `[]` on
+ * error or for a first-time poster (the chips row simply doesn't render).
+ */
+export async function getRecentSubjects(
+  userId: string,
+  limit = 5,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("subject")
+    .eq("user_id", userId)
+    .not("subject", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) {
+    console.error("getRecentSubjects:", error.message);
+    return [];
+  }
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const row of data ?? []) {
+    for (const tag of splitSubjects(row.subject ?? "")) {
+      const key = tag.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(tag);
+      if (out.length === limit) return out;
+    }
+  }
+  return out;
+}
+
 export async function getStreakCount(userId: string): Promise<number> {
   const { data, error } = await supabase
     .from("streaks")

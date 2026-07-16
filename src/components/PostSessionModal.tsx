@@ -15,8 +15,8 @@ import {
   X,
 } from "lucide-react";
 import { postSession } from "@/lib/mutations";
-import { getStreakCount } from "@/lib/client-queries";
-import { formatFocusLong } from "@/lib/format";
+import { getRecentSubjects, getStreakCount } from "@/lib/client-queries";
+import { formatFocusLong, splitSubjects } from "@/lib/format";
 import {
   copySessionLink,
   shareCard,
@@ -30,6 +30,21 @@ type Visibility = "public" | "followers" | "private";
 
 const SUBJECT_MAX = 60;
 const CAPTION_MAX = 280;
+
+// The visibility of the last successful post — the modal defaults to it, so a
+// "followers-only" person picks once, not every session (Step 19). Public stays
+// the first-ever default.
+const LAST_VISIBILITY_KEY = "seshn:last-visibility";
+
+function lastVisibility(): Visibility {
+  try {
+    const v = localStorage.getItem(LAST_VISIBILITY_KEY);
+    if (v === "public" || v === "followers" || v === "private") return v;
+  } catch {
+    // storage unavailable — fall through to the default
+  }
+  return "public";
+}
 
 const VISIBILITY_OPTIONS: {
   value: Visibility;
@@ -66,7 +81,9 @@ function PostSessionForm({
 
   const [subject, setSubject] = useState("");
   const [caption, setCaption] = useState("");
-  const [visibility, setVisibility] = useState<Visibility>("public");
+  // Lazy initializer is safe here: this form only mounts client-side (when the
+  // modal opens), so there's no SSR pass to mismatch against.
+  const [visibility, setVisibility] = useState<Visibility>(lastVisibility);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -93,6 +110,32 @@ function PostSessionForm({
       on = false;
     };
   }, [userId]);
+
+  // Recent-subject chips (Step 19) — fetched lazily when the modal opens (this
+  // form mounts per open), tap-to-fill below. Empty for first-time posters.
+  const [recentSubjects, setRecentSubjects] = useState<string[]>([]);
+  useEffect(() => {
+    let on = true;
+    void getRecentSubjects(userId).then((tags) => {
+      if (on) setRecentSubjects(tags);
+    });
+    return () => {
+      on = false;
+    };
+  }, [userId]);
+
+  // Tap a chip → fill the subject. An empty input takes the tag as-is; a
+  // non-empty one appends ", tag" (tags model — matches the comma-split pills on
+  // cards). Already-present tags and over-limit results are no-ops.
+  function fillSubject(tag: string) {
+    setSubject((prev) => {
+      const parts = splitSubjects(prev);
+      if (parts.some((p) => p.toLowerCase() === tag.toLowerCase())) return prev;
+      const base = prev.trim().replace(/,\s*$/, "");
+      const next = base ? `${base}, ${tag}` : tag;
+      return next.length <= SUBJECT_MAX ? next : prev;
+    });
+  }
 
   // Refresh the server-rendered stats (streak / Today / heatmap) on the way out —
   // deferred to here so they update whether the user shares or just dismisses.
@@ -141,6 +184,11 @@ function PostSessionForm({
       return;
     }
 
+    try {
+      localStorage.setItem(LAST_VISIBILITY_KEY, visibility); // next post defaults to this
+    } catch {
+      // fine — next post just defaults to public
+    }
     resetTimer(); // clear the timer back to idle now that it's posted
     notifyPosted(saved); // a mounted feed/profile list prepends the new card now
     void getStreakCount(userId).then(setStreakAfter); // pops into the success step
@@ -355,6 +403,21 @@ function PostSessionForm({
               {subject.length}/{SUBJECT_MAX}
             </span>
           </label>
+          {recentSubjects.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {recentSubjects.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => fillSubject(tag)}
+                  disabled={submitting}
+                  className="cursor-pointer rounded-[20px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-[3px] text-[11px] text-[#888888] transition-colors hover:border-[#1A4D22] hover:bg-[#0F2A15] hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
           <input
             id="session-subject"
             value={subject}
