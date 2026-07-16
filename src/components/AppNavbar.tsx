@@ -7,16 +7,20 @@ import { AnimatePresence, motion } from "framer-motion";
 import { LayoutList, LogOut, Settings, User, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { avatarColor, initials } from "@/lib/format";
+import DailyGoalRing from "@/components/DailyGoalRing";
 import NotificationsBell from "@/components/NotificationsBell";
 
 export default function AppNavbar({
   userId,
   username,
   displayName,
+  dailyGoalMinutes,
 }: {
   userId: string;
   username: string;
   displayName: string;
+  /** Daily focus goal in minutes; null hides the avatar progress ring. */
+  dailyGoalMinutes: number | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -66,7 +70,9 @@ export default function AppNavbar({
         <span className="text-base font-medium text-white">Seshn</span>
       </Link>
 
-      <nav className="flex items-center gap-1">
+      {/* Desktop-only since Step 24 — phones navigate with the bottom tab bar,
+          so the top bar slims to logo + bell + avatar. */}
+      <nav className="hidden items-center gap-1 md:flex">
         {links.map(({ href, label, Icon }) => {
           const active = pathname === href;
           return (
@@ -75,15 +81,14 @@ export default function AppNavbar({
               href={href}
               aria-current={active ? "page" : undefined}
               title={label}
-              className={`flex items-center gap-[5px] rounded-[20px] px-2.5 py-2 text-[13px] transition-colors sm:py-[5px] ${
+              className={`flex items-center gap-[5px] rounded-[20px] px-2.5 py-[5px] text-[13px] transition-colors ${
                 active
                   ? "bg-[#1C1C1C] text-white"
                   : "text-[#888888] hover:text-white"
               }`}
             >
               <Icon size={15} aria-hidden />
-              {/* Labels collapse to icon-only below sm so the bar fits on phones */}
-              <span className="hidden sm:inline">{label}</span>
+              {label}
             </Link>
           );
         })}
@@ -93,6 +98,9 @@ export default function AppNavbar({
         {/* Unread dot + inbox panel; hides itself while a focus block runs. */}
         <NotificationsBell viewerUsername={username} />
         <div ref={menuRef} className="relative">
+          {/* Goal progress ring around the avatar (Step 20) — absolutely
+              positioned so it never shifts layout; hidden when no goal is set. */}
+          <DailyGoalRing userId={userId} goalMinutes={dailyGoalMinutes} />
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}

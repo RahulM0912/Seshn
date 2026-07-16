@@ -46,6 +46,7 @@ export interface Database {
           bio: string | null;
           timezone: string;
           onboarded: boolean;
+          daily_goal_minutes: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -57,6 +58,7 @@ export interface Database {
           bio?: string | null;
           timezone?: string;
           onboarded?: boolean;
+          daily_goal_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -68,6 +70,7 @@ export interface Database {
           bio?: string | null;
           timezone?: string;
           onboarded?: boolean;
+          daily_goal_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -291,6 +294,14 @@ export interface Database {
       get_waitlist_count: {
         Args: Record<PropertyKey, never>;
         Returns: number;
+      };
+      soft_delete_session: {
+        Args: { p_session_id: string };
+        Returns: undefined;
+      };
+      soft_delete_comment: {
+        Args: { p_comment_id: string };
+        Returns: undefined;
       };
     };
     Enums: { [_ in never]: never };

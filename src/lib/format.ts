@@ -50,6 +50,24 @@ export function formatFocusLong(minutes: number): string {
   return `${h} hr ${m} min`;
 }
 
+/**
+ * A stored `subject` string → its display tags: split on commas, trim, drop
+ * empties, dedupe case-insensitively (first casing wins). Storage stays a single
+ * string — "maths, chem" becomes two tags only at render time (Step 19).
+ */
+export function splitSubjects(subject: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of subject.split(",")) {
+    const tag = part.trim();
+    const key = tag.toLowerCase();
+    if (!tag || seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+  }
+  return out;
+}
+
 /** ISO timestamp → "just now" / "2 hours ago" / "3 days ago" / "Jan 5". */
 export function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);

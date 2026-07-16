@@ -8,8 +8,13 @@
 // inspect `error.code` (e.g. `23505` unique_violation) and run optimistic UI.
 // Filled in per slice — add a function when its feature is built.
 
+import type { PostgrestError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import type { SessionInsert, Visibility } from "@/lib/database.types";
+import type {
+  SessionInsert,
+  SessionWithProfile,
+  Visibility,
+} from "@/lib/database.types";
 
 export interface PostSessionInput {
   userId: string;
@@ -26,7 +31,15 @@ export interface PostSessionInput {
 // Insert a posted focus session (Slice 3 / Step 4). Deliberately omits
 // like_count/comment_count — the RLS insert policy pins them to 0 and rejects
 // any seeded value. The streak row updates itself via a DB trigger.
-export function postSession(input: PostSessionInput) {
+//
+// Returns the inserted row with its author profile attached, so the feed/profile
+// `SessionList` (which holds its cards in client state `router.refresh()` can't
+// reach) can prepend the new card instantly — no reload. The author is joined in
+// a second query rather than a PostgREST `profiles(*)` embed, which returns no
+// rows against this Supabase instance (see queries.ts).
+export async function postSession(
+  input: PostSessionInput,
+): Promise<{ data: SessionWithProfile | null; error: PostgrestError | null }> {
   const payload: SessionInsert = {
     user_id: input.userId,
     started_at: input.startedAt,
@@ -38,7 +51,20 @@ export function postSession(input: PostSessionInput) {
     caption: input.caption,
     visibility: input.visibility,
   };
-  return supabase.from("sessions").insert(payload);
+  const { data: session, error } = await supabase
+    .from("sessions")
+    .insert(payload)
+    .select("*")
+    .single();
+  if (error || !session) return { data: null, error };
+
+  const { data: author } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", input.userId)
+    .single();
+
+  return { data: author ? { ...session, profiles: author } : null, error: null };
 }
 
 // Edit a posted session's text/sharing fields (Step 14). RLS scopes the UPDATE to
@@ -64,14 +90,18 @@ export function updateSession(sessionId: string, fields: SessionEdit) {
 
 // Delete a posted session (Step 14). SOFT delete — set `deleted_at`, and RLS hides
 // the row from every future read (feed, profile, permalink, daily totals all filter
-// `deleted_at is null`). Mirrors the comment-delete pattern; the owner-only RLS
-// update policy already permits this. Its likes/comments are left in place but
-// become unreachable along with the hidden session.
+// `deleted_at is null`). Its likes/comments are left in place but become unreachable
+// along with the hidden session.
+//
+// Routed through the `soft_delete_session` SECURITY DEFINER function rather than a
+// direct `update`: a plain owner UPDATE that set `deleted_at` was being rejected with
+// "new row violates row-level security policy" even though the owner-only update
+// policy is correct (verified: clean `user_id = auth.uid()` check, no restrictive
+// policy, owner-role update succeeds). The function runs in the owner context — which
+// is exempt from RLS here — while still gating on `user_id = auth.uid()`, so deletes
+// stay strictly owner-only.
 export function softDeleteSession(sessionId: string) {
-  return supabase
-    .from("sessions")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", sessionId);
+  return supabase.rpc("soft_delete_session", { p_session_id: sessionId });
 }
 
 // Follow / unfollow (Slice 6 / Step 7). RLS pins `follower_id` to the caller, so
@@ -132,11 +162,15 @@ export function updateComment(commentId: string, body: string) {
     .eq("id", commentId);
 }
 
+// SOFT delete via the `soft_delete_comment` SECURITY DEFINER function, for the
+// same reason as `softDeleteSession`: a direct owner UPDATE that sets `deleted_at`
+// is rejected by RLS (setting it drops the row out of `comments_select`'s
+// `deleted_at is null` filter, so the authenticated role can't write a row it can
+// no longer read). The function runs in the owner context (exempt from RLS) while
+// still gating on `user_id = auth.uid()`, so it stays author-only. The
+// comment-count trigger fires on the UPDATE and decrements as before.
 export function softDeleteComment(commentId: string) {
-  return supabase
-    .from("comments")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", commentId);
+  return supabase.rpc("soft_delete_comment", { p_comment_id: commentId });
 }
 
 // Mark every unread notification read (Slice 9 / Step 10) — called when the inbox
@@ -192,5 +226,17 @@ export function updateProfile(userId: string, fields: ProfileEdit) {
       username: fields.username,
       bio: fields.bio,
     })
+    .eq("id", userId);
+}
+
+// Set / clear the daily focus goal (Step 20) — written from the TIMER settings
+// modal (it lives with the other focus config, not the profile form), which is
+// why it's its own tiny mutation rather than part of ProfileEdit. Null = off
+// (the navbar ring hides). Account-level, unlike the rest of the timer modal's
+// device-local store. RLS scopes the update to the caller's own row.
+export function updateDailyGoal(userId: string, minutes: number | null) {
+  return supabase
+    .from("profiles")
+    .update({ daily_goal_minutes: minutes })
     .eq("id", userId);
 }

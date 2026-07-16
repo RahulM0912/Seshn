@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import SessionList from "@/components/SessionList";
+import ActivationCard from "@/components/ActivationCard";
 import InviteFriendCard from "@/components/InviteFriendCard";
 import FeedTabs from "@/components/FeedTabs";
+import WeeklyRecapCard from "@/components/WeeklyRecapCard";
 import { createClient } from "@/lib/supabase-server";
+import { getSessionUser } from "@/lib/viewer";
 import {
   SESSIONS_PAGE_SIZE,
   getFeedSessions,
   getLikedSessionIds,
+  getWeeklyRecap,
 } from "@/lib/queries";
 
 // The real "Following" feed (Step 6): sessions from you and everyone you follow,
@@ -19,17 +23,18 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Feed · Seshn" };
 
 export default async function FeedPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // The (app) layout already gates this, but the page needs the id and we never
-  // trust a possibly-null user.
+  // The (authed) layout already gates this, but the page needs the id and we
+  // never trust a possibly-null user. getSessionUser() is cache()d, so this
+  // reuses the layout's auth round-trip rather than making another.
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [profileRes, sessions] = await Promise.all([
+  const supabase = await createClient();
+  const [profileRes, sessions, recap] = await Promise.all([
     supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
     getFeedSessions(user.id),
+    // Null outside Mon–Tue (user tz) or when last week was empty (Step 18).
+    getWeeklyRecap(user.id),
   ]);
   const username = profileRes.data?.username ?? "";
 
@@ -48,6 +53,12 @@ export default async function FeedPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-3 p-4">
       {/* Following / Explore tabs — both live now (Step 12). */}
       <FeedTabs active="following" />
+
+      {/* New-user checklist — renders nothing once all three firsts are done
+          (Step 21). Above the recap: a brand-new account has no recap anyway. */}
+      <ActivationCard userId={user.id} />
+
+      {recap && <WeeklyRecapCard recap={recap} />}
 
       {sessions.length > 0 && (
         <SessionList

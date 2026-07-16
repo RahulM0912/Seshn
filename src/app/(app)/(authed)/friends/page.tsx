@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import PersonRow from "@/components/PersonRow";
-import { createClient } from "@/lib/supabase-server";
+import { getSessionUser } from "@/lib/viewer";
 import { getFollowers, getFollowing } from "@/lib/queries";
 
 // The follow graph (Step 7): who you follow and who follows you, each row with a
@@ -40,10 +40,7 @@ function Section({
 }
 
 export default async function FriendsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const [following, followers] = await Promise.all([

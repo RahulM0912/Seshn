@@ -1,55 +1,28 @@
-import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Flame } from "lucide-react";
-import AppShell from "@/components/AppShell";
 import SessionList from "@/components/SessionList";
 import FocusHeatmap from "@/components/FocusHeatmap";
 import FollowButton from "@/components/FollowButton";
+import ShareTodayButton from "@/components/ShareTodayButton";
 import {
   SESSIONS_PAGE_SIZE,
   getDailyFocusMinutes,
   getFocusHeatmap,
   getFollowCounts,
   getLikedSessionIds,
-  getProfileByUsername,
   getStreak,
   getUserSessions,
   isFollowing,
 } from "@/lib/queries";
-import { getViewer } from "@/lib/viewer";
+import type { Profile } from "@/lib/database.types";
+import type { Viewer } from "@/lib/viewer";
 import { avatarColor, formatFocusTime, initials, isStreakAlive } from "@/lib/format";
 
-// Public profile — a root-level route (seshn.in/<username>), reachable signed-out.
-// It uses the cookie-aware client (via the queries), so RLS shows each visitor
-// only what they're allowed to see; no special-casing here. createClient touches
-// cookies, so this renders dynamically — correct, it's per-viewer.
-//
-// Chrome is conditional: a signed-in visitor gets the full app shell (navbar +
-// the persistent sidebar timer) so nav and the running timer stay put; a
-// signed-out visitor gets a light standalone bar so the page is shareable.
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ username: string }>;
-}): Promise<Metadata> {
-  const { username } = await params;
-  const profile = await getProfileByUsername(username);
-  if (!profile) return { title: { absolute: "Not found · Seshn" } };
-
-  // Bare title — the root layout's template appends "· Seshn".
-  const title = `${profile.display_name} (@${profile.username})`;
-  const description =
-    profile.bio ?? `${profile.display_name}'s focus sessions on Seshn.`;
-  return {
-    title,
-    description,
-    alternates: { canonical: `/${profile.username}` },
-    openGraph: { title, description, type: "profile", url: `/${profile.username}` },
-    twitter: { card: "summary_large_image", title, description },
-  };
-}
+// The profile body (header + heatmap + sessions), without any page chrome. Lives
+// in its own component so the /[username] route can keep its chrome logic (own
+// AppShell when signed-in, light bar signed-out) separate from the body. `viewer`
+// is passed in by the caller (the route already resolves it) rather than
+// re-fetched here.
 
 function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   return (
@@ -64,24 +37,20 @@ function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   );
 }
 
-export default async function ProfilePage({
-  params,
+export default async function ProfileContent({
+  profile,
+  viewer,
 }: {
-  params: Promise<{ username: string }>;
+  profile: Profile;
+  viewer: Viewer | null;
 }) {
-  const { username } = await params;
-  const profile = await getProfileByUsername(username);
-  if (!profile) notFound();
-
-  const [sessions, dailyMinutes, follows, streak, heatmap, viewer] =
-    await Promise.all([
-      getUserSessions(profile.id),
-      getDailyFocusMinutes(profile.id),
-      getFollowCounts(profile.id),
-      getStreak(profile.id),
-      getFocusHeatmap(profile.id, profile.timezone),
-      getViewer(),
-    ]);
+  const [sessions, dailyMinutes, follows, streak, heatmap] = await Promise.all([
+    getUserSessions(profile.id),
+    getDailyFocusMinutes(profile.id),
+    getFollowCounts(profile.id),
+    getStreak(profile.id),
+    getFocusHeatmap(profile.id, profile.timezone),
+  ]);
 
   const av = avatarColor(profile.id);
   const streakDisplay =
@@ -120,7 +89,12 @@ export default async function ProfilePage({
       </Link>
     ) : null;
 
-  const body = (
+  // On your own profile the follow slot is empty — reuse it for "Share today",
+  // but only once there's something to brag about (focus logged today).
+  const topRightSlot =
+    isOwnProfile && dailyMinutes > 0 ? <ShareTodayButton /> : followSlot;
+
+  return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       {/* Profile header */}
       <section className="rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5">
@@ -145,7 +119,7 @@ export default async function ProfilePage({
               </p>
             )}
           </div>
-          {followSlot}
+          {topRightSlot}
         </div>
 
         <div className="mt-5 flex flex-wrap items-end gap-6">
@@ -165,7 +139,11 @@ export default async function ProfilePage({
       </section>
 
       {/* Focus activity heatmap */}
-      <FocusHeatmap minutesByDay={heatmap} timeZone={profile.timezone} />
+      <FocusHeatmap
+        minutesByDay={heatmap}
+        timeZone={profile.timezone}
+        isOwnProfile={isOwnProfile}
+      />
 
       {/* Sessions — keyset-paginated; the owner gets a visibility filter. */}
       <SessionList
@@ -184,32 +162,6 @@ export default async function ProfilePage({
         }
         showVisibilityFilter={isOwnProfile}
       />
-    </div>
-  );
-
-  // Signed-in: reuse the app shell so the navbar + running timer stay on screen.
-  if (viewer) {
-    return (
-      <AppShell
-        userId={viewer.id}
-        username={viewer.username}
-        displayName={viewer.displayName}
-      >
-        {body}
-      </AppShell>
-    );
-  }
-
-  // Signed-out: light, shareable standalone layout.
-  return (
-    <div className="min-h-dvh bg-[#0A0A0A]">
-      <header className="flex h-[52px] items-center border-b-[0.5px] border-[#2A2A2A] bg-[#111111] px-4 sm:px-5">
-        <Link href="/feed" className="flex items-center gap-[7px]">
-          <span aria-hidden className="h-2 w-2 rounded-full bg-[#22C55E]" />
-          <span className="text-base font-medium text-white">Seshn</span>
-        </Link>
-      </header>
-      {body}
     </div>
   );
 }

@@ -4,15 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
+  Check,
   Globe,
+  Link2,
   Lock,
+  Loader2,
   MoreHorizontal,
   Pencil,
+  Share2,
   Trash2,
   Users,
   X,
 } from "lucide-react";
-import { softDeleteSession, updateSession } from "@/lib/mutations";
+import { softDeleteSession, updateSession, type SessionEdit } from "@/lib/mutations";
+import { copySessionLink, shareCard } from "@/lib/share-card";
 import type { SessionWithProfile, Visibility } from "@/lib/database.types";
 
 // Owner-only controls on a SessionCard (Step 14). Rendered in the card header
@@ -21,10 +26,12 @@ import type { SessionWithProfile, Visibility } from "@/lib/database.types";
 // ⋯ menu plus its two actions: an edit modal (subject/caption/visibility — the
 // focus stats are immutable) and a two-tap delete confirm (soft delete via RLS).
 //
-// After a successful edit or delete we `router.refresh()` so the server-rendered
-// card re-reads: an edited card shows new text, a deleted one drops out of the
-// list (RLS now hides it). No optimistic local state — the row lives on the
-// server-rendered page, not in this client tree.
+// On success we prefer the optional `onEdited` / `onDeleted` callbacks so the
+// caller can patch its own state instantly. `SessionList` (feed + profile) holds
+// its cards in client state that `router.refresh()` can't reach — it keeps the
+// stale array after a refresh — so without these callbacks an edit/delete only
+// showed up after a full reload. When no callback is passed (the permalink, where
+// the card is server-rendered) we fall back to `router.refresh()`.
 
 const SUBJECT_MAX = 60;
 const CAPTION_MAX = 280;
@@ -41,12 +48,66 @@ const VISIBILITY_OPTIONS: {
 
 export default function SessionOwnerMenu({
   session,
+  onDeleted,
+  onEdited,
 }: {
   session: SessionWithProfile;
+  /** Called after a successful soft-delete so the list can drop the card. */
+  onDeleted?: () => void;
+  /** Called after a successful edit with the saved fields, so the list can patch
+   *  the card in place. */
+  onEdited?: (fields: SessionEdit) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareDone, setShareDone] = useState("");
+  const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Adaptive share: native sheet on mobile, copy-to-clipboard on desktop. This
+  // menu stays mounted (it's the card header), so updating state here is safe
+  // even though the sheet takes over on mobile. On desktop the menu flashes
+  // "Image copied" before closing so the silent clipboard copy is visible.
+  async function handleShareStory() {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const outcome = await shareCard({ session: session.id });
+      setSharing(false);
+      if (outcome === "copied") {
+        setShareDone("Image copied");
+        setTimeout(() => {
+          setShareDone("");
+          setMenuOpen(false);
+        }, 1100);
+        return;
+      }
+      setMenuOpen(false); // shared (native) / downloaded — no flash needed
+    } catch (err) {
+      setSharing(false);
+      // Dismissing the native sheet rejects with AbortError — a normal cancel.
+      if ((err as Error).name !== "AbortError") {
+        console.error("shareCard:", err);
+      }
+      setMenuOpen(false);
+    }
+  }
+
+  // Copy the public permalink; flash "Copied!" then close. Public-only (the item
+  // isn't rendered otherwise), since only a public session is openable by anyone.
+  async function handleCopyLink() {
+    const ok = await copySessionLink(session.id);
+    if (!ok) {
+      setMenuOpen(false);
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+      setMenuOpen(false);
+    }, 1000);
+  }
 
   // Close the dropdown on outside click / Escape (the modals manage their own).
   useEffect(() => {
@@ -88,8 +149,39 @@ export default function SessionOwnerMenu({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -6 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
-          className="absolute right-0 top-8 z-20 flex w-36 flex-col rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] py-1 shadow-lg shadow-black/40"
+          className="absolute right-0 top-8 z-20 flex w-40 flex-col rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] py-1 shadow-lg shadow-black/40"
         >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleShareStory}
+            disabled={sharing}
+            className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-[12px] text-[#CCCCCC] transition-colors hover:bg-[#252525] hover:text-white focus-visible:outline-none focus-visible:bg-[#252525] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {shareDone ? (
+              <Check size={13} className="text-[#22C55E]" aria-hidden />
+            ) : sharing ? (
+              <Loader2 size={13} className="animate-spin" aria-hidden />
+            ) : (
+              <Share2 size={13} aria-hidden />
+            )}
+            {shareDone || (sharing ? "Preparing…" : "Share")}
+          </button>
+          {session.visibility === "public" && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleCopyLink}
+              className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-[12px] text-[#CCCCCC] transition-colors hover:bg-[#252525] hover:text-white focus-visible:outline-none focus-visible:bg-[#252525]"
+            >
+              {copied ? (
+                <Check size={13} className="text-[#22C55E]" aria-hidden />
+              ) : (
+                <Link2 size={13} aria-hidden />
+              )}
+              {copied ? "Copied!" : "Copy link"}
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"
@@ -102,14 +194,22 @@ export default function SessionOwnerMenu({
             <Pencil size={13} aria-hidden />
             Edit
           </button>
-          <DeleteMenuItem session={session} onDone={() => setMenuOpen(false)} />
+          <DeleteMenuItem
+            session={session}
+            onDone={() => setMenuOpen(false)}
+            onDeleted={onDeleted}
+          />
         </motion.div>
       )}
       </AnimatePresence>
 
       <AnimatePresence>
       {editing && (
-        <EditSessionModal session={session} onClose={() => setEditing(false)} />
+        <EditSessionModal
+          session={session}
+          onClose={() => setEditing(false)}
+          onEdited={onEdited}
+        />
       )}
       </AnimatePresence>
     </div>
@@ -122,9 +222,11 @@ export default function SessionOwnerMenu({
 function DeleteMenuItem({
   session,
   onDone,
+  onDeleted,
 }: {
   session: SessionWithProfile;
   onDone: () => void;
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const [armed, setArmed] = useState(false);
@@ -145,7 +247,9 @@ function DeleteMenuItem({
       return;
     }
     onDone();
-    router.refresh();
+    // Prefer the caller's optimistic removal; fall back to a server re-read.
+    if (onDeleted) onDeleted();
+    else router.refresh();
   }
 
   return (
@@ -171,9 +275,11 @@ function DeleteMenuItem({
 function EditSessionModal({
   session,
   onClose,
+  onEdited,
 }: {
   session: SessionWithProfile;
   onClose: () => void;
+  onEdited?: (fields: SessionEdit) => void;
 }) {
   const router = useRouter();
   const [subject, setSubject] = useState(session.subject ?? "");
@@ -199,18 +305,21 @@ function EditSessionModal({
     if (saving) return;
     setSaving(true);
     setError("");
-    const { error: updateError } = await updateSession(session.id, {
+    const edited: SessionEdit = {
       subject: subject.trim() || null,
       caption: caption.trim() || null,
       visibility,
-    });
+    };
+    const { error: updateError } = await updateSession(session.id, edited);
     if (updateError) {
       setError("Couldn't save your changes. Please try again.");
       setSaving(false);
       return;
     }
     onClose();
-    router.refresh();
+    // Prefer the caller's optimistic patch; fall back to a server re-read.
+    if (onEdited) onEdited(edited);
+    else router.refresh();
   }
 
   return (

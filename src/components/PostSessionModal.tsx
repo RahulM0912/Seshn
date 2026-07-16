@@ -2,16 +2,49 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Globe, Lock, Users, X } from "lucide-react";
+import {
+  Check,
+  Flame,
+  Globe,
+  Link2,
+  Loader2,
+  Lock,
+  Share2,
+  Trophy,
+  Users,
+  X,
+} from "lucide-react";
 import { postSession } from "@/lib/mutations";
-import { formatFocusLong } from "@/lib/format";
+import { getRecentSubjects, getStreakCount } from "@/lib/client-queries";
+import { formatFocusLong, splitSubjects } from "@/lib/format";
+import {
+  copySessionLink,
+  shareCard,
+  shareOutcomeMessage,
+} from "@/lib/share-card";
 import { useTimerStore, type PendingSession } from "@/lib/timer-store";
 import { useSessionPostStore } from "@/lib/session-post-store";
+import type { SessionWithProfile } from "@/lib/database.types";
 
 type Visibility = "public" | "followers" | "private";
 
 const SUBJECT_MAX = 60;
 const CAPTION_MAX = 280;
+
+// The visibility of the last successful post — the modal defaults to it, so a
+// "followers-only" person picks once, not every session (Step 19). Public stays
+// the first-ever default.
+const LAST_VISIBILITY_KEY = "seshn:last-visibility";
+
+function lastVisibility(): Visibility {
+  try {
+    const v = localStorage.getItem(LAST_VISIBILITY_KEY);
+    if (v === "public" || v === "followers" || v === "private") return v;
+  } catch {
+    // storage unavailable — fall through to the default
+  }
+  return "public";
+}
 
 const VISIBILITY_OPTIONS: {
   value: Visibility;
@@ -43,19 +76,81 @@ function PostSessionForm({
 }) {
   const router = useRouter();
   const close = useSessionPostStore((s) => s.close);
+  const notifyPosted = useSessionPostStore((s) => s.notifyPosted);
   const resetTimer = useTimerStore((s) => s.reset);
 
   const [subject, setSubject] = useState("");
   const [caption, setCaption] = useState("");
-  const [visibility, setVisibility] = useState<Visibility>("public");
+  // Lazy initializer is safe here: this form only mounts client-side (when the
+  // modal opens), so there's no SSR pass to mismatch against.
+  const [visibility, setVisibility] = useState<Visibility>(lastVisibility);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Once set, the form is replaced by a "share what you just posted" success step.
+  const [posted, setPosted] = useState<SessionWithProfile | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [shareNote, setShareNote] = useState("");
+  const [shareError, setShareError] = useState("");
 
-  // Escape closes (while not submitting); lock body scroll while open.
+  const goalMet = pending.pomodorosCompleted >= pending.pomodorosPlanned;
+
+  // Streak celebration (Step 17): snapshot the streak when the modal opens,
+  // re-read it after the insert (the DB trigger updates it), and the success
+  // step counts up the difference. Two lazy reads, modal-open only.
+  const [streakBefore, setStreakBefore] = useState<number | null>(null);
+  const [streakAfter, setStreakAfter] = useState<number | null>(null);
+  useEffect(() => {
+    let on = true;
+    void getStreakCount(userId).then((n) => {
+      if (on) setStreakBefore(n);
+    });
+    return () => {
+      on = false;
+    };
+  }, [userId]);
+
+  // Recent-subject chips (Step 19) — fetched lazily when the modal opens (this
+  // form mounts per open), tap-to-fill below. Empty for first-time posters.
+  const [recentSubjects, setRecentSubjects] = useState<string[]>([]);
+  useEffect(() => {
+    let on = true;
+    void getRecentSubjects(userId).then((tags) => {
+      if (on) setRecentSubjects(tags);
+    });
+    return () => {
+      on = false;
+    };
+  }, [userId]);
+
+  // Tap a chip → fill the subject. An empty input takes the tag as-is; a
+  // non-empty one appends ", tag" (tags model — matches the comma-split pills on
+  // cards). Already-present tags and over-limit results are no-ops.
+  function fillSubject(tag: string) {
+    setSubject((prev) => {
+      const parts = splitSubjects(prev);
+      if (parts.some((p) => p.toLowerCase() === tag.toLowerCase())) return prev;
+      const base = prev.trim().replace(/,\s*$/, "");
+      const next = base ? `${base}, ${tag}` : tag;
+      return next.length <= SUBJECT_MAX ? next : prev;
+    });
+  }
+
+  // Refresh the server-rendered stats (streak / Today / heatmap) on the way out —
+  // deferred to here so they update whether the user shares or just dismisses.
+  function finish() {
+    close();
+    router.refresh();
+  }
+
+  // Escape closes (while not submitting); lock body scroll while open. On the
+  // success step the session is already saved, so leaving refreshes stats too.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !submitting) close();
+      if (e.key !== "Escape" || submitting) return;
+      close();
+      if (posted) router.refresh();
     };
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
@@ -64,14 +159,14 @@ function PostSessionForm({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [submitting, close]);
+  }, [submitting, posted, close, router]);
 
   async function handlePost() {
     if (submitting) return;
     setSubmitting(true);
     setError("");
 
-    const { error: insertError } = await postSession({
+    const { data: saved, error: insertError } = await postSession({
       userId,
       startedAt: pending.startedAt,
       endedAt: pending.endedAt,
@@ -83,15 +178,53 @@ function PostSessionForm({
       visibility,
     });
 
-    if (insertError) {
+    if (insertError || !saved) {
       setError("Couldn't post your session. Please try again.");
       setSubmitting(false);
       return;
     }
 
+    try {
+      localStorage.setItem(LAST_VISIBILITY_KEY, visibility); // next post defaults to this
+    } catch {
+      // fine — next post just defaults to public
+    }
     resetTimer(); // clear the timer back to idle now that it's posted
-    close();
-    router.refresh(); // let the feed/profile pick up the new row (built later)
+    notifyPosted(saved); // a mounted feed/profile list prepends the new card now
+    void getStreakCount(userId).then(setStreakAfter); // pops into the success step
+    setSubmitting(false);
+    setPosted(saved); // advance to the share step (stats refresh on finish())
+  }
+
+  async function handleShareStory() {
+    if (sharing || !posted) return;
+    setSharing(true);
+    setShareError("");
+    setShareNote("");
+    try {
+      const note = shareOutcomeMessage(await shareCard({ session: posted.id }));
+      if (note) {
+        setShareNote(note);
+        setTimeout(() => setShareNote(""), 2000);
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setShareError("Couldn't create card.");
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function handleCopyLink() {
+    if (!posted) return;
+    const ok = await copySessionLink(posted.id);
+    if (!ok) {
+      setShareError("Couldn't copy link.");
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   // Throw the whole session away without posting. Destructive (the focus time is
@@ -104,6 +237,116 @@ function PostSessionForm({
     }
     resetTimer();
     close();
+  }
+
+  // Success step — the session is saved; offer to share it before leaving. The
+  // backdrop / X / Done all `finish()` (close + refresh the server stats).
+  if (posted) {
+    return (
+      <div
+        role="presentation"
+        onClick={finish}
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="post-success-title"
+          onClick={(e) => e.stopPropagation()}
+          className="flex w-full max-w-[440px] flex-col gap-4 rounded-t-[16px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5 sm:rounded-[16px]"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <h2
+                id="post-success-title"
+                className="flex items-center gap-1.5 text-[15px] font-semibold text-white"
+              >
+                {goalMet && (
+                  <Trophy size={15} className="text-[#22C55E]" aria-hidden />
+                )}
+                {goalMet ? "Goal crushed — posted" : "Session posted"}
+              </h2>
+              <p className="mt-0.5 text-[12px] text-[#888888]">
+                <span className="text-[#22C55E]">
+                  {formatFocusLong(posted.focus_minutes)}
+                </span>{" "}
+                focused · share your win
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={finish}
+              aria-label="Close"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] transition-colors hover:text-white"
+            >
+              <X size={15} aria-hidden />
+            </button>
+          </div>
+
+          {streakAfter !== null && streakAfter > 0 && (
+            <div className="flex items-center justify-center gap-2 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-3 py-3">
+              <Flame size={16} className="text-[#22C55E]" aria-hidden />
+              <span className="text-[13px] font-medium text-[#22C55E]">
+                {streakBefore !== null && streakAfter > streakBefore ? (
+                  <>
+                    <StreakCountUp from={streakBefore} to={streakAfter} /> day
+                    streak{streakAfter === 1 ? " — started!" : " — extended!"}
+                  </>
+                ) : (
+                  <>{streakAfter} day streak</>
+                )}
+              </span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleShareStory}
+            disabled={sharing}
+            className="flex min-h-[42px] cursor-pointer items-center justify-center gap-2 rounded-[8px] bg-[#22C55E] text-[13px] font-medium text-[#0A0A0A] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {sharing ? (
+              <Loader2 size={15} className="animate-spin" aria-hidden />
+            ) : (
+              <Share2 size={15} aria-hidden />
+            )}
+            {sharing ? "Preparing…" : "Share"}
+          </button>
+
+          {posted.visibility === "public" && (
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="flex min-h-[42px] cursor-pointer items-center justify-center gap-2 rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[13px] font-medium text-white transition-colors hover:border-[#22C55E] hover:text-[#22C55E]"
+            >
+              {copied ? (
+                <Check size={15} className="text-[#22C55E]" aria-hidden />
+              ) : (
+                <Link2 size={15} aria-hidden />
+              )}
+              {copied ? "Link copied" : "Copy link"}
+            </button>
+          )}
+
+          {shareNote && (
+            <p className="text-center text-[12px] text-[#22C55E]">{shareNote}</p>
+          )}
+          {shareError && (
+            <p role="alert" className="text-[12px] text-red-400">
+              {shareError}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={finish}
+            className="min-h-[42px] cursor-pointer rounded-[8px] text-[13px] font-medium text-[#888888] transition-colors hover:text-white"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -123,9 +366,14 @@ function PostSessionForm({
           <div>
             <h2
               id="post-session-title"
-              className="text-[15px] font-semibold text-white"
+              className="flex items-center gap-1.5 text-[15px] font-semibold text-white"
             >
-              Post your session
+              {goalMet && (
+                <Trophy size={15} className="text-[#22C55E]" aria-hidden />
+              )}
+              {goalMet
+                ? `Goal crushed — ${pending.pomodorosCompleted}/${pending.pomodorosPlanned}`
+                : "Post your session"}
             </h2>
             <p className="mt-0.5 text-[12px] text-[#888888]">
               <span className="text-[#22C55E]">
@@ -155,6 +403,21 @@ function PostSessionForm({
               {subject.length}/{SUBJECT_MAX}
             </span>
           </label>
+          {recentSubjects.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {recentSubjects.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => fillSubject(tag)}
+                  disabled={submitting}
+                  className="cursor-pointer rounded-[20px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-[3px] text-[11px] text-[#888888] transition-colors hover:border-[#1A4D22] hover:bg-[#0F2A15] hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
           <input
             id="session-subject"
             value={subject}
@@ -268,4 +531,30 @@ function PostSessionForm({
       </div>
     </div>
   );
+}
+
+// Counts the streak number up (e.g. 5 → 6) in the success step. Hand-rolled
+// rAF tween — no animation dependency; reduced-motion jumps straight to the end.
+function StreakCountUp({ from, to }: { from: number; to: number }) {
+  const [n, setN] = useState(from);
+  useEffect(() => {
+    if (
+      from === to ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setN(to);
+      return;
+    }
+    const startedAt = performance.now();
+    const duration = 700;
+    let raf: number;
+    const frame = (now: number) => {
+      const p = Math.min(1, (now - startedAt) / duration);
+      setN(Math.round(from + (to - from) * p));
+      if (p < 1) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to]);
+  return <span className="tabular-nums">{n}</span>;
 }

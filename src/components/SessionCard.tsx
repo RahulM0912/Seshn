@@ -2,7 +2,14 @@
 
 import { Flame, MessageCircle } from "lucide-react";
 import type { SessionWithProfile } from "@/lib/database.types";
-import { avatarColor, formatFocusTime, initials, relativeTime } from "@/lib/format";
+import type { SessionEdit } from "@/lib/mutations";
+import {
+  avatarColor,
+  formatFocusTime,
+  initials,
+  relativeTime,
+  splitSubjects,
+} from "@/lib/format";
 import SessionCardFooter from "@/components/SessionCardFooter";
 import SessionOwnerMenu from "@/components/SessionOwnerMenu";
 import VisibilityBadge from "@/components/VisibilityBadge";
@@ -23,14 +30,25 @@ export default function SessionCard({
   viewerId = null,
   liked = false,
   defaultCommentsOpen = false,
+  onDeleted,
+  onEdited,
 }: {
   session: SessionWithProfile;
   viewerId?: string | null;
   liked?: boolean;
   defaultCommentsOpen?: boolean;
+  /** Owner-list hooks: let the parent list update its own state on edit/delete
+   *  instead of a server round-trip. Omitted on the permalink (server-rendered),
+   *  where the owner menu falls back to `router.refresh()`. */
+  onDeleted?: (id: string) => void;
+  onEdited?: (id: string, fields: SessionEdit) => void;
 }) {
   const author = session.profiles;
   const av = avatarColor(author.id);
+
+  // "maths, chem" stored as one string renders as separate pills (Step 19) —
+  // display-only, capped at 3 with a "+n" overflow so a tag pile can't take over.
+  const subjects = session.subject ? splitSubjects(session.subject) : [];
 
   const completed = session.pomodoros_completed;
   const planned = session.pomodoros_planned;
@@ -60,7 +78,15 @@ export default function SessionCard({
 
         {/* Owner-only edit/delete — shows wherever this card renders (feed,
             profile, permalink) for the author's own posts. */}
-        {viewerId === author.id && <SessionOwnerMenu session={session} />}
+        {viewerId === author.id && (
+          <SessionOwnerMenu
+            session={session}
+            onDeleted={onDeleted ? () => onDeleted(session.id) : undefined}
+            onEdited={
+              onEdited ? (fields) => onEdited(session.id, fields) : undefined
+            }
+          />
+        )}
       </header>
 
       {/* Pomodoro dots */}
@@ -95,11 +121,23 @@ export default function SessionCard({
         Total focus time
       </div>
 
-      {/* Subject */}
-      {session.subject && (
-        <div className="mb-2 inline-flex items-center gap-[5px] rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2.5 py-[3px] text-[11px] text-[#22C55E]">
-          <span aria-hidden className="h-[6px] w-[6px] flex-shrink-0 rounded-full bg-[#22C55E]" />
-          {session.subject}
+      {/* Subject tags */}
+      {subjects.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          {subjects.slice(0, 3).map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-[5px] rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2.5 py-[3px] text-[11px] text-[#22C55E]"
+            >
+              <span aria-hidden className="h-[6px] w-[6px] flex-shrink-0 rounded-full bg-[#22C55E]" />
+              {tag}
+            </span>
+          ))}
+          {subjects.length > 3 && (
+            <span className="rounded-[20px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2 py-[3px] text-[11px] text-[#888888]">
+              +{subjects.length - 3}
+            </span>
+          )}
         </div>
       )}
 
