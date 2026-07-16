@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import SessionList from "@/components/SessionList";
+import ActivationCard from "@/components/ActivationCard";
 import InviteFriendCard from "@/components/InviteFriendCard";
 import FeedTabs from "@/components/FeedTabs";
 import WeeklyRecapCard from "@/components/WeeklyRecapCard";
@@ -52,6 +53,10 @@ export default async function FeedPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-3 p-4">
       {/* Following / Explore tabs — both live now (Step 12). */}
       <FeedTabs active="following" />
+
+      {/* New-user checklist — renders nothing once all three firsts are done
+          (Step 21). Above the recap: a brand-new account has no recap anyway. */}
+      <ActivationCard userId={user.id} />
 
       {recap && <WeeklyRecapCard recap={recap} />}
 

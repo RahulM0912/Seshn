@@ -137,6 +137,7 @@ export default function TimerCard({ userId }: { userId: string }) {
   return (
     <div
       ref={cardRef}
+      id="timer"
       className="rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-4"
     >
       <div className="mb-3.5 flex items-center justify-between">

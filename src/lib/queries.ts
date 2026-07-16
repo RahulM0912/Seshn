@@ -682,3 +682,37 @@ export async function getWeeklyRecap(userId: string): Promise<WeeklyRecap | null
     weekKey: lastMonday,
   };
 }
+
+export interface ActivationState {
+  /** ≥1 posted session — covers both "finish a pomodoro" and "post it". */
+  hasSession: boolean;
+  /** Follows at least one person. */
+  hasFollowing: boolean;
+}
+
+/**
+ * New-user activation progress (Step 21) — derived entirely from existing data
+ * (a head-count on own sessions + the follow-counts RPC), zero schema. Once
+ * both are true the checklist card renders nothing, forever — no dismissal
+ * flag needed, the data itself is the flag.
+ */
+export async function getActivationState(
+  userId: string,
+): Promise<ActivationState> {
+  const supabase = await createClient();
+  const [sessionRes, follows] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .is("deleted_at", null),
+    getFollowCounts(userId),
+  ]);
+  if (sessionRes.error) {
+    console.error("getActivationState:", sessionRes.error.message);
+  }
+  return {
+    hasSession: (sessionRes.count ?? 0) > 0,
+    hasFollowing: follows.following > 0,
+  };
+}
