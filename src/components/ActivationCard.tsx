@@ -17,13 +17,15 @@ export default async function ActivationCard({ userId }: { userId: string }) {
     {
       label: "Finish a pomodoro",
       done: hasSession,
-      href: "#timer", // the timer card (above the feed on mobile, sidebar on desktop)
+      // The Timer tab on phones; on desktop /timer bounces to /feed, where the
+      // sidebar timer is already on screen (Step 24).
+      href: "/timer",
       hint: "Start the timer",
     },
     {
       label: "Post your first session",
       done: hasSession,
-      href: "#timer",
+      href: "/timer",
       hint: "End session → Post",
     },
     {

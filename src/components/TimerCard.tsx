@@ -27,11 +27,13 @@ function phaseLabel(t: TimerView): string {
 // Side-effect hook: play the boundary chime when the phase flips (focus↔break,
 // including when a break ends) and a soft tick each second while the timer runs
 // — focus AND break. Both gated on the user's prefs. The phase ref starts null
-// so hydration / first paint never fires a chime.
-function useTimerSounds(t: TimerView): void {
+// so hydration / first paint never fires a chime. `enabled` keeps a second
+// mounted TimerCard (Step 24's /timer page) from double-ringing.
+function useTimerSounds(t: TimerView, enabled: boolean): void {
   const prevPhase = useRef<TimerView["phase"] | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     const prev = prevPhase.current;
     prevPhase.current = t.phase;
     // Any genuine phase change between two non-idle phases rings (focus→break
@@ -39,27 +41,39 @@ function useTimerSounds(t: TimerView): void {
     if (prev && prev !== "idle" && prev !== t.phase && t.phase !== "idle") {
       if (t.soundEnabled) playAlarm(t.volume);
     }
-  }, [t.phase, t.soundEnabled, t.volume]);
+  }, [enabled, t.phase, t.soundEnabled, t.volume]);
 
   useEffect(() => {
     // Tick while the clock is actively running — during focus or break.
-    if (!(t.tickingEnabled && t.running && t.phase !== "idle")) return;
+    if (!enabled || !(t.tickingEnabled && t.running && t.phase !== "idle")) return;
     const id = setInterval(() => playTick(t.volume), 1000);
     return () => clearInterval(id);
-  }, [t.tickingEnabled, t.running, t.phase, t.volume]);
+  }, [enabled, t.tickingEnabled, t.running, t.phase, t.volume]);
 }
 
-// The Pomodoro timer card. Lives in the app-shell sidebar (and is the first
-// thing shown on mobile). All state/persistence is in `@/lib/timer-store`; this
-// component is pure presentation + dispatching actions. Visual values track the
-// mockup's `.timer-card` (docs/design.md → App design language).
-export default function TimerCard({ userId }: { userId: string }) {
+// The Pomodoro timer card. Lives in the app-shell sidebar (desktop) and on the
+// /timer tab (mobile, Step 24). All state/persistence is in `@/lib/timer-store`;
+// this component is pure presentation + dispatching actions. Visual values track
+// the mockup's `.timer-card` (docs/design.md → App design language).
+//
+// `effects` — since Step 24 two instances can be mounted at once (the sidebar
+// one is CSS-hidden on phones, the /timer page adds a second). Global side
+// effects (sounds, tab title/favicon, notifications, wake lock, keyboard
+// shortcuts, confetti) must run in exactly ONE instance or they double-fire:
+// the always-mounted sidebar card keeps them; the /timer page passes false.
+export default function TimerCard({
+  userId,
+  effects = true,
+}: {
+  userId: string;
+  effects?: boolean;
+}) {
   const t = useTimer();
   const openModal = useSessionPostStore((s) => s.openModal);
   const postOpen = useSessionPostStore((s) => s.open);
   const [showSettings, setShowSettings] = useState(false);
-  useTimerSounds(t);
-  useTimerBrowserEffects(t); // tab title, favicon dot, notifications, wake lock
+  useTimerSounds(t, effects);
+  useTimerBrowserEffects(t, effects); // tab title, favicon dot, notifications, wake lock
 
   const onPrimary = () => {
     unlockAudio(); // unlock the AudioContext on this user gesture
@@ -83,7 +97,7 @@ export default function TimerCard({ userId }: { userId: string }) {
   const keyActions = useRef({ onPrimary, onEndSession, skipBreak: t.skipBreak });
   keyActions.current = { onPrimary, onEndSession, skipBreak: t.skipBreak };
   useEffect(() => {
-    if (showSettings || postOpen) return;
+    if (!effects || showSettings || postOpen) return;
     function onKey(e: KeyboardEvent) {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
       const el = e.target as HTMLElement | null;
@@ -100,7 +114,7 @@ export default function TimerCard({ userId }: { userId: string }) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showSettings, postOpen]);
+  }, [effects, showSettings, postOpen]);
 
   // Goal-hit celebration (Step 17): confetti fires the moment the pomodoro
   // count *crosses* the session goal — transition-based (prev ref), so a
@@ -110,19 +124,21 @@ export default function TimerCard({ userId }: { userId: string }) {
   const hydrated = useTimerStore((s) => s.hydrated);
   const prevPomos = useRef<number | null>(null);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!effects || !hydrated) return;
     const prev = prevPomos.current;
     prevPomos.current = t.pomodorosCompleted;
     if (prev === null || t.phase === "idle") return;
     if (prev < t.sessionGoal && t.pomodorosCompleted >= t.sessionGoal) {
+      // A CSS-hidden card (the sidebar on phones) measures 0×0 — burst from
+      // the screen center instead of the top-left corner.
       const rect = cardRef.current?.getBoundingClientRect();
       burstConfetti(
-        rect
+        rect && rect.width > 0
           ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 3 }
           : undefined,
       );
     }
-  }, [hydrated, t.pomodorosCompleted, t.sessionGoal, t.phase]);
+  }, [effects, hydrated, t.pomodorosCompleted, t.sessionGoal, t.phase]);
 
   const primaryLabel = t.running ? "Pause" : t.phase === "idle" ? "Start" : "Resume";
   const PrimaryIcon = t.running ? Pause : Play;
@@ -137,7 +153,6 @@ export default function TimerCard({ userId }: { userId: string }) {
   return (
     <div
       ref={cardRef}
-      id="timer"
       className="rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-4"
     >
       <div className="mb-3.5 flex items-center justify-between">

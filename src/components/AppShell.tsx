@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import AppNavbar from "@/components/AppNavbar";
 import AppSidebar from "@/components/AppSidebar";
+import MobileTabBar from "@/components/MobileTabBar";
 import PostSessionModal from "@/components/PostSessionModal";
 
 // The signed-in app chrome: navbar + the two-column grid (main + the persistent
@@ -36,11 +37,15 @@ export default function AppShell({
         dailyGoalMinutes={dailyGoalMinutes}
       />
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[1fr_320px] md:overflow-hidden lg:grid-cols-[1fr_400px]">
-        <main className="order-2 md:order-1 md:overflow-y-auto md:border-r-[0.5px] md:border-[#2A2A2A]">
+        <main className="md:overflow-y-auto md:border-r-[0.5px] md:border-[#2A2A2A]">
           {children}
         </main>
+        {/* Desktop-only — on phones the timer lives on /timer (Step 24). */}
         <AppSidebar userId={userId} />
       </div>
+      {/* Phone-only bottom nav (Step 24). A flex sibling below the scroll area,
+          so content can never hide underneath it. */}
+      <MobileTabBar username={username} />
       {/* Mounted at the shell level so it overlays the whole app; opened from the
           TimerCard's "End session" button via the post-session store. */}
       <PostSessionModal userId={userId} />

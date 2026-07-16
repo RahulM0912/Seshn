@@ -31,11 +31,12 @@ export function maybeRequestNotificationPermission(): void {
 // dep — the effect re-asserts the countdown right after each nav. On idle we
 // restore a plain "Seshn" (the next navigation's metadata sets the real title)
 // and put the branded favicon back.
-function useTimerTabState(t: TimerView): void {
+function useTimerTabState(t: TimerView, enabled: boolean): void {
   const pathname = usePathname();
   const overrode = useRef(false);
 
   useEffect(() => {
+    if (!enabled) return;
     if (t.phase === "idle") {
       if (overrode.current) {
         overrode.current = false;
@@ -51,7 +52,7 @@ function useTimerTabState(t: TimerView): void {
       : `⏸ ${t.clock} · Paused — Seshn`;
     overrode.current = true;
     setFaviconDot(t.running ? DOT_RUNNING : DOT_PAUSED);
-  }, [t.clock, t.phase, t.running, t.isLongBreak, pathname]);
+  }, [enabled, t.clock, t.phase, t.running, t.isLongBreak, pathname]);
 
   // Unmount with a session underway (e.g. navigating to a page without the
   // sidebar): don't leave a frozen countdown in the title.
@@ -71,10 +72,11 @@ function useTimerTabState(t: TimerView): void {
 // hydration/refresh never fires. Only when the tab is hidden (visible tab
 // already has the chime + UI) and only if permission was granted via the
 // Start-gesture request above.
-function usePhaseEndNotification(t: TimerView): void {
+function usePhaseEndNotification(t: TimerView, enabled: boolean): void {
   const prevPhase = useRef<TimerView["phase"] | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     const prev = prevPhase.current;
     prevPhase.current = t.phase;
     if (!prev || prev === "idle" || prev === t.phase || t.phase === "idle") return;
@@ -100,7 +102,7 @@ function usePhaseEndNotification(t: TimerView): void {
     } catch {
       // some browsers (Android Chrome) only allow SW notifications — skip
     }
-  }, [t.phase, t.isLongBreak]);
+  }, [enabled, t.phase, t.isLongBreak]);
 }
 
 // Keep the screen awake while a focus block is actively counting down. The
@@ -143,8 +145,11 @@ function useWakeLock(active: boolean): void {
   }, [active]);
 }
 
-export function useTimerBrowserEffects(t: TimerView): void {
-  useTimerTabState(t);
-  usePhaseEndNotification(t);
-  useWakeLock(t.phase === "focus" && t.running);
+// `enabled` exists because two TimerCards can be mounted at once since Step 24
+// (the CSS-hidden sidebar one + the /timer page one) — exactly one instance may
+// own the global browser surfaces, or titles/notifications double-fire.
+export function useTimerBrowserEffects(t: TimerView, enabled = true): void {
+  useTimerTabState(t, enabled);
+  usePhaseEndNotification(t, enabled);
+  useWakeLock(enabled && t.phase === "focus" && t.running);
 }
