@@ -208,7 +208,7 @@ export default function SessionList({
 
   const header = title ? (
     <div className="mb-3 mt-6 flex items-center justify-between gap-3">
-      <h2 className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[#555555]">
+      <h2 className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[#8A8A8A]">
         {title}
       </h2>
       {showVisibilityFilter && (

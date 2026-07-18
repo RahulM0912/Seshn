@@ -41,8 +41,8 @@ export default function SessionCardFooter({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label={open ? "Hide comments" : "Show comments"}
-          className={`-m-1 flex cursor-pointer items-center gap-[5px] rounded-md p-1 text-[12px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E] ${
-            open ? "text-[#888888]" : "text-[#555555] hover:text-[#888888]"
+          className={`-m-1 flex cursor-pointer items-center gap-[5px] rounded-md p-1 text-[12px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E] max-md:-my-[11px] max-md:py-[11px] ${
+            open ? "text-[#888888]" : "text-[#8A8A8A] hover:text-white"
           }`}
         >
           <MessageCircle size={14} aria-hidden />

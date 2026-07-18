@@ -46,19 +46,19 @@ export default function NotificationsPanel({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -6 }}
       transition={{ duration: 0.15, ease: "easeOut" }}
-      className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[70vh] w-80 overflow-y-auto overflow-x-hidden rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] py-1 shadow-xl shadow-black/40"
+      className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[70vh] w-80 overflow-y-auto overflow-x-hidden overscroll-contain rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] py-1 shadow-xl shadow-black/40"
     >
       <div className="border-b-[0.5px] border-[#2A2A2A] px-3 py-2.5 text-[13px] font-medium text-white">
         Notifications
       </div>
 
       {loading ? (
-        <p className="px-3 py-8 text-center text-[12px] text-[#555555]">Loading…</p>
+        <p className="px-3 py-8 text-center text-[12px] text-[#8A8A8A]">Loading…</p>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-9 text-center">
-          <Bell size={18} className="text-[#555555]" aria-hidden />
+          <Bell size={18} className="text-[#8A8A8A]" aria-hidden />
           <p className="text-[12px] font-medium text-[#888888]">Nothing yet</p>
-          <p className="max-w-[200px] text-[11px] leading-relaxed text-[#555555]">
+          <p className="max-w-[200px] text-[11px] leading-relaxed text-[#8A8A8A]">
             Likes, comments, and new followers will show up here.
           </p>
         </div>
@@ -92,11 +92,11 @@ export default function NotificationsPanel({
                       {actionText(n.type)}
                     </p>
                     {n.type === "comment" && n.commentBody && (
-                      <p className="mt-0.5 truncate text-[11px] text-[#555555]">
+                      <p className="mt-0.5 truncate text-[11px] text-[#8A8A8A]">
                         “{n.commentBody}”
                       </p>
                     )}
-                    <p className="mt-0.5 text-[10px] text-[#555555]">
+                    <p className="mt-0.5 text-[10px] text-[#8A8A8A]">
                       {relativeTime(n.created_at)}
                     </p>
                   </div>

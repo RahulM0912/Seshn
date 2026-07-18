@@ -53,7 +53,7 @@ export default function InstallAppMenuItem({
         Install app
       </button>
       {showIosHelp && (
-        <p className="px-3 pb-2 text-[11px] leading-relaxed text-[#555555]">
+        <p className="px-3 pb-2 text-[11px] leading-relaxed text-[#8A8A8A]">
           Open the <span className="text-[#888888]">Share</span> menu in Safari
           and tap{" "}
           <span className="text-[#888888]">&ldquo;Add to Home Screen&rdquo;</span>.

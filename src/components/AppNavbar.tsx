@@ -129,7 +129,7 @@ export default function AppNavbar({
                 <div className="truncate text-[13px] font-medium text-white">
                   {displayName}
                 </div>
-                <div className="truncate text-[11px] text-[#555555]">
+                <div className="truncate text-[11px] text-[#8A8A8A]">
                   @{username}
                 </div>
               </div>

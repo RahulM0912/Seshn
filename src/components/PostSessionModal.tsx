@@ -399,7 +399,7 @@ function PostSessionForm({
             className="flex items-center justify-between text-[12px] font-medium text-[#888888]"
           >
             <span>Subject</span>
-            <span className="text-[11px] text-[#555555] tabular-nums">
+            <span className="text-[11px] text-[#8A8A8A] tabular-nums">
               {subject.length}/{SUBJECT_MAX}
             </span>
           </label>
@@ -425,7 +425,7 @@ function PostSessionForm({
             maxLength={SUBJECT_MAX}
             disabled={submitting}
             placeholder="e.g. Physics — Electrostatics"
-            className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] text-white placeholder:text-[#555555] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
+            className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] text-white placeholder:text-[#8A8A8A] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
           />
         </div>
 
@@ -435,7 +435,7 @@ function PostSessionForm({
             className="flex items-center justify-between text-[12px] font-medium text-[#888888]"
           >
             <span>Caption</span>
-            <span className="text-[11px] text-[#555555] tabular-nums">
+            <span className="text-[11px] text-[#8A8A8A] tabular-nums">
               {caption.length}/{CAPTION_MAX}
             </span>
           </label>
@@ -447,7 +447,7 @@ function PostSessionForm({
             disabled={submitting}
             rows={3}
             placeholder="How did it go?"
-            className="resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] leading-relaxed text-white placeholder:text-[#555555] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
+            className="resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] leading-relaxed text-white placeholder:text-[#8A8A8A] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
           />
         </div>
 

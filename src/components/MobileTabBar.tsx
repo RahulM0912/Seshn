@@ -32,7 +32,7 @@ export default function MobileTabBar({ username }: { username: string }) {
             href={href}
             aria-current={active ? "page" : undefined}
             className={`flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 text-[10px] transition-colors ${
-              active ? "text-white" : "text-[#555555]"
+              active ? "text-white" : "text-[#8A8A8A]"
             }`}
           >
             <Icon size={18} aria-hidden />

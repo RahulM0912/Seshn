@@ -136,7 +136,7 @@ export default function SessionOwnerMenu({
         aria-label="Post options"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full text-[#555555] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
+        className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full text-[#8A8A8A] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60"
       >
         <MoreHorizontal size={16} aria-hidden />
       </button>
@@ -367,7 +367,7 @@ function EditSessionModal({
             className="flex items-center justify-between text-[12px] font-medium text-[#888888]"
           >
             <span>Subject</span>
-            <span className="text-[11px] text-[#555555] tabular-nums">
+            <span className="text-[11px] text-[#8A8A8A] tabular-nums">
               {subject.length}/{SUBJECT_MAX}
             </span>
           </label>
@@ -378,7 +378,7 @@ function EditSessionModal({
             maxLength={SUBJECT_MAX}
             disabled={saving}
             placeholder="e.g. Physics — Electrostatics"
-            className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] text-white placeholder:text-[#555555] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
+            className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] text-white placeholder:text-[#8A8A8A] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
           />
         </div>
 
@@ -388,7 +388,7 @@ function EditSessionModal({
             className="flex items-center justify-between text-[12px] font-medium text-[#888888]"
           >
             <span>Caption</span>
-            <span className="text-[11px] text-[#555555] tabular-nums">
+            <span className="text-[11px] text-[#8A8A8A] tabular-nums">
               {caption.length}/{CAPTION_MAX}
             </span>
           </label>
@@ -400,7 +400,7 @@ function EditSessionModal({
             disabled={saving}
             rows={3}
             placeholder="How did it go?"
-            className="resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] leading-relaxed text-white placeholder:text-[#555555] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
+            className="resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] leading-relaxed text-white placeholder:text-[#8A8A8A] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
           />
         </div>
 

@@ -8,7 +8,7 @@ export default function SettingsLoading() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="text-xl font-semibold text-white">Settings</h1>
-      <p className="mb-6 mt-1 text-[13px] text-[#555555]">
+      <p className="mb-6 mt-1 text-[13px] text-[#8A8A8A]">
         Manage your profile and account.
       </p>
 

@@ -105,7 +105,7 @@ export default function OnboardingForm({
           Username
         </label>
         <div className="flex items-center rounded-xl border border-white/15 bg-white/[0.04] px-4 transition-colors focus-within:border-[#22C55E] focus-within:bg-white/[0.06]">
-          <span aria-hidden="true" className="text-[#666666]">
+          <span aria-hidden="true" className="text-[#8A8A8A]">
             @
           </span>
           <input
@@ -122,12 +122,12 @@ export default function OnboardingForm({
             autoFocus
             autoComplete="off"
             placeholder="yourhandle"
-            className="w-full bg-transparent py-3 pl-1 text-base text-white placeholder:text-[#666666] outline-none disabled:opacity-60"
+            className="w-full bg-transparent py-3 pl-1 text-base text-white placeholder:text-[#8A8A8A] outline-none disabled:opacity-60"
           />
           {usernameValid && (
             <span aria-hidden="true" className="pl-2">
               {availability === "checking" && (
-                <Loader2 size={16} className="animate-spin text-[#666666]" />
+                <Loader2 size={16} className="animate-spin text-[#8A8A8A]" />
               )}
               {availability === "available" && (
                 <Check size={16} className="text-[#22C55E]" />
@@ -145,7 +145,7 @@ export default function OnboardingForm({
               ? "text-red-400"
               : usernameValid && availability === "available"
                 ? "text-[#22C55E]"
-                : "text-[#666666]"
+                : "text-[#8A8A8A]"
           }`}
         >
           {usernameValid && availability === "taken"
@@ -171,7 +171,7 @@ export default function OnboardingForm({
           disabled={loading}
           maxLength={50}
           placeholder="Your name"
-          className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-base text-white placeholder:text-[#666666] outline-none transition-colors focus:border-[#22C55E] focus:bg-white/[0.06] disabled:opacity-60"
+          className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-base text-white placeholder:text-[#8A8A8A] outline-none transition-colors focus:border-[#22C55E] focus:bg-white/[0.06] disabled:opacity-60"
         />
       </div>
 
@@ -184,7 +184,7 @@ export default function OnboardingForm({
       <button
         type="submit"
         disabled={loading || availability === "checking"}
-        className="mt-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#22C55E] px-7 py-3.5 text-base font-semibold text-[#0A0A0A] transition-all hover:bg-[#16a34a] hover:scale-[1.02] disabled:opacity-60 disabled:hover:scale-100"
+        className="mt-1 inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[#22C55E] px-7 py-3.5 text-base font-semibold text-[#0A0A0A] transition-all hover:bg-[#16a34a] hover:scale-[1.02] disabled:cursor-default disabled:opacity-60 disabled:hover:scale-100"
       >
         {loading ? "Setting up…" : "Claim your handle"}
         {!loading && <span aria-hidden="true">→</span>}

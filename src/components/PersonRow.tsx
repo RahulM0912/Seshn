@@ -35,7 +35,7 @@ export default function PersonRow({
           <div className="truncate text-[13px] font-medium text-white">
             {profile.display_name}
           </div>
-          <div className="truncate text-[11px] text-[#555555]">
+          <div className="truncate text-[11px] text-[#8A8A8A]">
             @{profile.username}
           </div>
         </div>

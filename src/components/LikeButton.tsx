@@ -48,6 +48,8 @@ export default function LikeButton({
     }
   }
 
+  // The max-md py/-my pair grows the tap target to ≥44px on phones while the
+  // negative margin keeps the footer's visual layout unchanged.
   return (
     <motion.button
       type="button"
@@ -57,8 +59,8 @@ export default function LikeButton({
       transition={{ type: "spring", stiffness: 500, damping: 20 }}
       aria-pressed={liked}
       aria-label={liked ? "Unlike this session" : "Like this session"}
-      className={`-m-1 flex cursor-pointer items-center gap-[5px] rounded-md p-1 text-[12px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E] disabled:cursor-default ${
-        liked ? "text-[#22C55E]" : "text-[#555555] hover:text-[#888888]"
+      className={`-m-1 flex cursor-pointer items-center gap-[5px] rounded-md p-1 text-[12px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E] disabled:cursor-default max-md:-my-[11px] max-md:py-[11px] ${
+        liked ? "text-[#22C55E]" : "text-[#8A8A8A] hover:text-white"
       }`}
     >
       <motion.span

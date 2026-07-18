@@ -61,7 +61,7 @@ export default async function LoginPage({
           <GoogleSignInButton />
         </div>
 
-        <p className="mt-8 text-xs text-[#666666]">
+        <p className="mt-8 text-xs text-[#8A8A8A]">
           By continuing you agree to focus honestly. No cheating — just
           discipline made visible.
         </p>
