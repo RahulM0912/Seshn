@@ -3,7 +3,8 @@ import { getStreakCard } from "@/lib/queries";
 import StreakNudge from "@/components/StreakNudge";
 
 // The streak card in the sidebar (Step 11): 🔥 number + nudge + a 7-day strip
-// (done / today / pending), per the mockup. An async Server Component — it reads
+// showing the continuous streak run (the last `current` days filled, ending
+// today), so the strip always matches the number. An async Server Component — it reads
 // the viewer's streak fresh on every navigation, so posting a session reflects
 // immediately. The streak number is display-truth: getStreakCard zeroes it when
 // the stored row is stale (last session older than yesterday in the user's tz),

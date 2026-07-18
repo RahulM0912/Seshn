@@ -143,6 +143,7 @@ export default async function ProfileContent({
         minutesByDay={heatmap}
         timeZone={profile.timezone}
         isOwnProfile={isOwnProfile}
+        maxStreak={streak?.longest_streak ?? 0}
       />
 
       {/* Sessions — keyset-paginated; the owner gets a visibility filter. */}

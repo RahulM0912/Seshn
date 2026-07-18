@@ -54,11 +54,15 @@ export default function FocusHeatmap({
   minutesByDay,
   timeZone,
   isOwnProfile = false,
+  maxStreak,
 }: {
   minutesByDay: Record<string, number>;
   timeZone: string;
   /** On the owner's own profile, day cells with focus open a share-able recap. */
   isOwnProfile?: boolean;
+  /** All-time best run (streaks.longest_streak) — LeetCode-style header stat.
+      The profile header shows the *current* streak; this shows the max. */
+  maxStreak?: number;
 }) {
   // Dropdown options: "Current" (rolling 12 months) plus every year from now back
   // to the earliest year with logged focus. New users see just Current + this year.
@@ -163,6 +167,14 @@ export default function FocusHeatmap({
                 {activeDays}
               </span>
             </div>
+            {maxStreak !== undefined && (
+              <div>
+                <span className="text-[11px] text-[#8A8A8A]">Max streak: </span>
+                <span className="text-[11px] font-semibold text-white tabular-nums">
+                  {maxStreak}
+                </span>
+              </div>
+            )}
           </div>
           {/* Range dropdown — custom listbox (LeetCode-style): "Current" then years,
               a check on the selected one. A button + menu (not a native select) so it

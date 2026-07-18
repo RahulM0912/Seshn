@@ -511,12 +511,14 @@ export async function getStreakCard(userId: string): Promise<StreakCardView> {
       .map((d) => dayInTimeZone(new Date(d), timezone)),
   );
   const alive = isStreakAlive(streak?.last_session_date ?? null, timezone);
+  const current = alive ? streak?.current_streak ?? 0 : 0;
+  const postedToday = activeDays.has(dayInTimeZone(new Date(), timezone));
 
   return {
-    current: alive ? streak?.current_streak ?? 0 : 0,
+    current,
     alive,
-    postedToday: activeDays.has(dayInTimeZone(new Date(), timezone)),
-    week: buildStreakWeek(activeDays, timezone),
+    postedToday,
+    week: buildStreakWeek(current, postedToday, timezone),
   };
 }
 
