@@ -222,9 +222,23 @@ export async function getFollowers(userId: string): Promise<Profile[]> {
 }
 
 /**
+ * Site-wide total of minutes ever focused on Seshn — the landing page's one live
+ * number (Step 26). SECURITY DEFINER RPC granted to anon, so the signed-out
+ * landing render can call it; it returns a single aggregate, nothing per-user.
+ */
+export async function getTotalFocusMinutes(): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_total_focus_minutes");
+  if (error) console.error("getTotalFocusMinutes:", error.message);
+  return data ?? 0;
+}
+
+/**
  * Profile search for Explore (Step 12 — "people to follow"). Case-insensitive
  * substring match on display name OR @username, excluding the viewer's own row.
  * Profiles are world-readable under RLS, so any signed-in user can discover anyone.
+ * Un-onboarded rows (placeholder `@user_…` handles, no chosen name) are filtered
+ * out — they read as broken entries in the list (Step 26).
  *
  * The raw query is sanitized before it's spliced into the PostgREST `or(...)`
  * filter: commas/parens would change the filter's meaning and `%`/`_` are `ilike`
@@ -244,6 +258,7 @@ export async function searchProfiles(
     .from("profiles")
     .select("*")
     .neq("id", viewerId)
+    .eq("onboarded", true)
     .or(`display_name.ilike.%${safe}%,username.ilike.%${safe}%`)
     .order("username", { ascending: true })
     .limit(limit);
@@ -256,6 +271,7 @@ export async function searchProfiles(
  * except the viewer, newest first. Followed and not-yet-followed alike are returned
  * (each row carries its own follow state), so the list never looks empty on a small
  * instance and matches what `searchProfiles` returns. RLS-safe (profiles are public).
+ * Un-onboarded placeholder profiles are excluded, same as search (Step 26).
  */
 export async function getDiscoverProfiles(
   viewerId: string,
@@ -266,6 +282,7 @@ export async function getDiscoverProfiles(
     .from("profiles")
     .select("*")
     .neq("id", viewerId)
+    .eq("onboarded", true)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) console.error("getDiscoverProfiles:", error.message);
@@ -494,11 +511,13 @@ export async function getStreakCard(userId: string): Promise<StreakCardView> {
       .map((d) => dayInTimeZone(new Date(d), timezone)),
   );
   const alive = isStreakAlive(streak?.last_session_date ?? null, timezone);
+  const current = alive ? streak?.current_streak ?? 0 : 0;
+  const postedToday = activeDays.has(dayInTimeZone(new Date(), timezone));
 
   return {
-    current: alive ? streak?.current_streak ?? 0 : 0,
+    current,
     alive,
-    postedToday: activeDays.has(dayInTimeZone(new Date(), timezone)),
+    postedToday,
     week: buildStreakWeek(activeDays, timezone),
   };
 }
@@ -582,4 +601,137 @@ export async function getFriendsActivity(
       return b.minutesToday - a.minutesToday;
     })
     .slice(0, limit);
+}
+
+export interface WeeklyRecap {
+  /** Focus minutes over the just-completed ISO week (Mon–Sun, user tz). */
+  lastWeekMinutes: number;
+  /** The week before that — the comparison baseline (0 = no baseline). */
+  prevWeekMinutes: number;
+  /** Subject with the most minutes last week (raw string, null if untagged). */
+  topSubject: string | null;
+  /** Days of last week with at least one session. */
+  activeDays: number;
+  /** Last week's Monday (YYYY-MM-DD, user tz) — the card's dismiss key. */
+  weekKey: string;
+}
+
+/** Day-string arithmetic (YYYY-MM-DD + n days) — tz-free once bucketed. */
+function addDaysToDayString(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The weekly recap card's data (Step 18): last week's focus vs the week
+ * before, top subject, active days — all bucketed to the user's local days
+ * with `ended_at`, the same boundary the streak trigger uses. Returns null
+ * outside Mon–Tue (user tz — the only days the card shows) and null when last
+ * week had no sessions (nothing to recap), so the feed can just null-check.
+ */
+export async function getWeeklyRecap(userId: string): Promise<WeeklyRecap | null> {
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .maybeSingle();
+  const timezone = profile?.timezone ?? "Asia/Kolkata";
+
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+  }).format(new Date());
+  if (weekday !== "Mon" && weekday !== "Tue") return null;
+
+  // Local-day window math: this week's Monday, then the two prior weeks.
+  const today = dayInTimeZone(new Date(), timezone);
+  const thisMonday = addDaysToDayString(today, weekday === "Mon" ? 0 : -1);
+  const lastMonday = addDaysToDayString(thisMonday, -7);
+  const prevMonday = addDaysToDayString(thisMonday, -14);
+
+  // 16 days of sessions covers both weeks in any timezone.
+  const since = new Date(Date.now() - 16 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: rows, error } = await supabase
+    .from("sessions")
+    .select("focus_minutes, subject, ended_at")
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .gte("ended_at", since);
+  if (error) {
+    console.error("getWeeklyRecap:", error.message);
+    return null;
+  }
+
+  let lastWeekMinutes = 0;
+  let prevWeekMinutes = 0;
+  const daysActive = new Set<string>();
+  const bySubject = new Map<string, number>();
+  for (const row of rows ?? []) {
+    if (!row.ended_at) continue;
+    const day = dayInTimeZone(new Date(row.ended_at), timezone);
+    if (day >= lastMonday && day < thisMonday) {
+      lastWeekMinutes += row.focus_minutes;
+      daysActive.add(day);
+      const subject = row.subject?.trim();
+      if (subject) {
+        bySubject.set(subject, (bySubject.get(subject) ?? 0) + row.focus_minutes);
+      }
+    } else if (day >= prevMonday && day < lastMonday) {
+      prevWeekMinutes += row.focus_minutes;
+    }
+  }
+  if (lastWeekMinutes === 0) return null;
+
+  let topSubject: string | null = null;
+  let topMinutes = 0;
+  for (const [subject, minutes] of bySubject) {
+    if (minutes > topMinutes) {
+      topSubject = subject;
+      topMinutes = minutes;
+    }
+  }
+
+  return {
+    lastWeekMinutes,
+    prevWeekMinutes,
+    topSubject,
+    activeDays: daysActive.size,
+    weekKey: lastMonday,
+  };
+}
+
+export interface ActivationState {
+  /** ≥1 posted session — covers both "finish a pomodoro" and "post it". */
+  hasSession: boolean;
+  /** Follows at least one person. */
+  hasFollowing: boolean;
+}
+
+/**
+ * New-user activation progress (Step 21) — derived entirely from existing data
+ * (a head-count on own sessions + the follow-counts RPC), zero schema. Once
+ * both are true the checklist card renders nothing, forever — no dismissal
+ * flag needed, the data itself is the flag.
+ */
+export async function getActivationState(
+  userId: string,
+): Promise<ActivationState> {
+  const supabase = await createClient();
+  const [sessionRes, follows] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .is("deleted_at", null),
+    getFollowCounts(userId),
+  ]);
+  if (sessionRes.error) {
+    console.error("getActivationState:", sessionRes.error.message);
+  }
+  return {
+    hasSession: (sessionRes.count ?? 0) > 0,
+    hasFollowing: follows.following > 0,
+  };
 }

@@ -46,6 +46,7 @@ export interface Database {
           bio: string | null;
           timezone: string;
           onboarded: boolean;
+          daily_goal_minutes: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -57,6 +58,7 @@ export interface Database {
           bio?: string | null;
           timezone?: string;
           onboarded?: boolean;
+          daily_goal_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -68,6 +70,7 @@ export interface Database {
           bio?: string | null;
           timezone?: string;
           onboarded?: boolean;
+          daily_goal_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -283,6 +286,10 @@ export interface Database {
       get_follow_counts: {
         Args: { p_user_id: string };
         Returns: { followers: number; following: number }[];
+      };
+      get_total_focus_minutes: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
       };
       get_unread_notification_count: {
         Args: Record<PropertyKey, never>;

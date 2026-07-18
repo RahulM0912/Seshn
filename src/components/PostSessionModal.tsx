@@ -4,16 +4,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  Flame,
   Globe,
   Link2,
   Loader2,
   Lock,
   Share2,
+  Trophy,
   Users,
   X,
 } from "lucide-react";
 import { postSession } from "@/lib/mutations";
-import { formatFocusLong } from "@/lib/format";
+import { getRecentSubjects, getStreakCount } from "@/lib/client-queries";
+import { formatFocusLong, splitSubjects } from "@/lib/format";
 import {
   copySessionLink,
   shareCard,
@@ -27,6 +30,21 @@ type Visibility = "public" | "followers" | "private";
 
 const SUBJECT_MAX = 60;
 const CAPTION_MAX = 280;
+
+// The visibility of the last successful post — the modal defaults to it, so a
+// "followers-only" person picks once, not every session (Step 19). Public stays
+// the first-ever default.
+const LAST_VISIBILITY_KEY = "seshn:last-visibility";
+
+function lastVisibility(): Visibility {
+  try {
+    const v = localStorage.getItem(LAST_VISIBILITY_KEY);
+    if (v === "public" || v === "followers" || v === "private") return v;
+  } catch {
+    // storage unavailable — fall through to the default
+  }
+  return "public";
+}
 
 const VISIBILITY_OPTIONS: {
   value: Visibility;
@@ -63,7 +81,9 @@ function PostSessionForm({
 
   const [subject, setSubject] = useState("");
   const [caption, setCaption] = useState("");
-  const [visibility, setVisibility] = useState<Visibility>("public");
+  // Lazy initializer is safe here: this form only mounts client-side (when the
+  // modal opens), so there's no SSR pass to mismatch against.
+  const [visibility, setVisibility] = useState<Visibility>(lastVisibility);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -73,6 +93,49 @@ function PostSessionForm({
   const [copied, setCopied] = useState(false);
   const [shareNote, setShareNote] = useState("");
   const [shareError, setShareError] = useState("");
+
+  const goalMet = pending.pomodorosCompleted >= pending.pomodorosPlanned;
+
+  // Streak celebration (Step 17): snapshot the streak when the modal opens,
+  // re-read it after the insert (the DB trigger updates it), and the success
+  // step counts up the difference. Two lazy reads, modal-open only.
+  const [streakBefore, setStreakBefore] = useState<number | null>(null);
+  const [streakAfter, setStreakAfter] = useState<number | null>(null);
+  useEffect(() => {
+    let on = true;
+    void getStreakCount(userId).then((n) => {
+      if (on) setStreakBefore(n);
+    });
+    return () => {
+      on = false;
+    };
+  }, [userId]);
+
+  // Recent-subject chips (Step 19) — fetched lazily when the modal opens (this
+  // form mounts per open), tap-to-fill below. Empty for first-time posters.
+  const [recentSubjects, setRecentSubjects] = useState<string[]>([]);
+  useEffect(() => {
+    let on = true;
+    void getRecentSubjects(userId).then((tags) => {
+      if (on) setRecentSubjects(tags);
+    });
+    return () => {
+      on = false;
+    };
+  }, [userId]);
+
+  // Tap a chip → fill the subject. An empty input takes the tag as-is; a
+  // non-empty one appends ", tag" (tags model — matches the comma-split pills on
+  // cards). Already-present tags and over-limit results are no-ops.
+  function fillSubject(tag: string) {
+    setSubject((prev) => {
+      const parts = splitSubjects(prev);
+      if (parts.some((p) => p.toLowerCase() === tag.toLowerCase())) return prev;
+      const base = prev.trim().replace(/,\s*$/, "");
+      const next = base ? `${base}, ${tag}` : tag;
+      return next.length <= SUBJECT_MAX ? next : prev;
+    });
+  }
 
   // Refresh the server-rendered stats (streak / Today / heatmap) on the way out —
   // deferred to here so they update whether the user shares or just dismisses.
@@ -121,8 +184,14 @@ function PostSessionForm({
       return;
     }
 
+    try {
+      localStorage.setItem(LAST_VISIBILITY_KEY, visibility); // next post defaults to this
+    } catch {
+      // fine — next post just defaults to public
+    }
     resetTimer(); // clear the timer back to idle now that it's posted
     notifyPosted(saved); // a mounted feed/profile list prepends the new card now
+    void getStreakCount(userId).then(setStreakAfter); // pops into the success step
     setSubmitting(false);
     setPosted(saved); // advance to the share step (stats refresh on finish())
   }
@@ -190,9 +259,12 @@ function PostSessionForm({
             <div>
               <h2
                 id="post-success-title"
-                className="text-[15px] font-semibold text-white"
+                className="flex items-center gap-1.5 text-[15px] font-semibold text-white"
               >
-                Session posted
+                {goalMet && (
+                  <Trophy size={15} className="text-[#22C55E]" aria-hidden />
+                )}
+                {goalMet ? "Goal crushed — posted" : "Session posted"}
               </h2>
               <p className="mt-0.5 text-[12px] text-[#888888]">
                 <span className="text-[#22C55E]">
@@ -210,6 +282,22 @@ function PostSessionForm({
               <X size={15} aria-hidden />
             </button>
           </div>
+
+          {streakAfter !== null && streakAfter > 0 && (
+            <div className="flex items-center justify-center gap-2 rounded-[8px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-3 py-3">
+              <Flame size={16} className="text-[#22C55E]" aria-hidden />
+              <span className="text-[13px] font-medium text-[#22C55E]">
+                {streakBefore !== null && streakAfter > streakBefore ? (
+                  <>
+                    <StreakCountUp from={streakBefore} to={streakAfter} /> day
+                    streak{streakAfter === 1 ? " — started!" : " — extended!"}
+                  </>
+                ) : (
+                  <>{streakAfter} day streak</>
+                )}
+              </span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -278,9 +366,14 @@ function PostSessionForm({
           <div>
             <h2
               id="post-session-title"
-              className="text-[15px] font-semibold text-white"
+              className="flex items-center gap-1.5 text-[15px] font-semibold text-white"
             >
-              Post your session
+              {goalMet && (
+                <Trophy size={15} className="text-[#22C55E]" aria-hidden />
+              )}
+              {goalMet
+                ? `Goal crushed — ${pending.pomodorosCompleted}/${pending.pomodorosPlanned}`
+                : "Post your session"}
             </h2>
             <p className="mt-0.5 text-[12px] text-[#888888]">
               <span className="text-[#22C55E]">
@@ -306,10 +399,25 @@ function PostSessionForm({
             className="flex items-center justify-between text-[12px] font-medium text-[#888888]"
           >
             <span>Subject</span>
-            <span className="text-[11px] text-[#555555] tabular-nums">
+            <span className="text-[11px] text-[#8A8A8A] tabular-nums">
               {subject.length}/{SUBJECT_MAX}
             </span>
           </label>
+          {recentSubjects.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {recentSubjects.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => fillSubject(tag)}
+                  disabled={submitting}
+                  className="cursor-pointer rounded-[20px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-[3px] text-[11px] text-[#888888] transition-colors hover:border-[#1A4D22] hover:bg-[#0F2A15] hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
           <input
             id="session-subject"
             value={subject}
@@ -317,7 +425,7 @@ function PostSessionForm({
             maxLength={SUBJECT_MAX}
             disabled={submitting}
             placeholder="e.g. Physics — Electrostatics"
-            className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] text-white placeholder:text-[#555555] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
+            className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] text-white placeholder:text-[#8A8A8A] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
           />
         </div>
 
@@ -327,7 +435,7 @@ function PostSessionForm({
             className="flex items-center justify-between text-[12px] font-medium text-[#888888]"
           >
             <span>Caption</span>
-            <span className="text-[11px] text-[#555555] tabular-nums">
+            <span className="text-[11px] text-[#8A8A8A] tabular-nums">
               {caption.length}/{CAPTION_MAX}
             </span>
           </label>
@@ -339,7 +447,7 @@ function PostSessionForm({
             disabled={submitting}
             rows={3}
             placeholder="How did it go?"
-            className="resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] leading-relaxed text-white placeholder:text-[#555555] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
+            className="resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2.5 text-[13px] leading-relaxed text-white placeholder:text-[#8A8A8A] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60"
           />
         </div>
 
@@ -423,4 +531,30 @@ function PostSessionForm({
       </div>
     </div>
   );
+}
+
+// Counts the streak number up (e.g. 5 → 6) in the success step. Hand-rolled
+// rAF tween — no animation dependency; reduced-motion jumps straight to the end.
+function StreakCountUp({ from, to }: { from: number; to: number }) {
+  const [n, setN] = useState(from);
+  useEffect(() => {
+    if (
+      from === to ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setN(to);
+      return;
+    }
+    const startedAt = performance.now();
+    const duration = 700;
+    let raf: number;
+    const frame = (now: number) => {
+      const p = Math.min(1, (now - startedAt) / duration);
+      setN(Math.round(from + (to - from) * p));
+      if (p < 1) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to]);
+  return <span className="tabular-nums">{n}</span>;
 }

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, LogOut, X } from "lucide-react";
+import { Check, Loader2, LogOut, Mail, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { SUPPORT_MAILTO } from "@/lib/support";
 import { updateProfile, updateTimezone } from "@/lib/mutations";
 import { isUsernameAvailable } from "@/lib/client-queries";
 import type { Profile } from "@/lib/database.types";
@@ -22,7 +23,7 @@ const BIO_MAX = 160;
 type Availability = "idle" | "checking" | "available" | "taken";
 
 const inputClass =
-  "w-full rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-3 py-2.5 text-[13px] text-white placeholder:text-[#555555] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60";
+  "w-full rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-3 py-2.5 text-[13px] text-white placeholder:text-[#8A8A8A] outline-none transition-colors focus:border-[#22C55E] disabled:opacity-60";
 const labelClass = "text-[12px] font-medium text-[#888888]";
 
 export default function SettingsForm({ profile }: { profile: Profile }) {
@@ -162,7 +163,7 @@ export default function SettingsForm({ profile }: { profile: Profile }) {
             Username
           </label>
           <div className="flex items-center rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-3 transition-colors focus-within:border-[#22C55E]">
-            <span aria-hidden className="text-[13px] text-[#555555]">
+            <span aria-hidden className="text-[13px] text-[#8A8A8A]">
               @
             </span>
             <input
@@ -182,7 +183,7 @@ export default function SettingsForm({ profile }: { profile: Profile }) {
             {usernameChanged && usernameValid && (
               <span aria-hidden className="pl-2">
                 {availability === "checking" && (
-                  <Loader2 size={14} className="animate-spin text-[#555555]" />
+                  <Loader2 size={14} className="animate-spin text-[#8A8A8A]" />
                 )}
                 {availability === "available" && (
                   <Check size={14} className="text-[#22C55E]" />
@@ -200,7 +201,7 @@ export default function SettingsForm({ profile }: { profile: Profile }) {
                 ? "text-[#F87171]"
                 : usernameChanged && availability === "available"
                   ? "text-[#22C55E]"
-                  : "text-[#555555]"
+                  : "text-[#8A8A8A]"
             }`}
           >
             {usernameChanged && availability === "taken"
@@ -225,7 +226,7 @@ export default function SettingsForm({ profile }: { profile: Profile }) {
             placeholder="A line about what you're focusing on."
             className={`${inputClass} resize-none`}
           />
-          <p className="text-right text-[10px] tabular-nums text-[#555555]">
+          <p className="text-right text-[10px] tabular-nums text-[#8A8A8A]">
             {bio.length}/{BIO_MAX}
           </p>
         </div>
@@ -235,9 +236,9 @@ export default function SettingsForm({ profile }: { profile: Profile }) {
           <span className={labelClass}>Timezone</span>
           <div className="flex items-center justify-between rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-3 py-2.5">
             <span className="text-[13px] text-white">{profile.timezone}</span>
-            <span className="text-[11px] text-[#555555]">From your device</span>
+            <span className="text-[11px] text-[#8A8A8A]">From your device</span>
           </div>
-          <p className="text-[11px] text-[#555555]">
+          <p className="text-[11px] text-[#8A8A8A]">
             Sets your day boundary for streaks and daily focus totals. Updated
             automatically from your device.
           </p>
@@ -262,6 +263,21 @@ export default function SettingsForm({ profile }: { profile: Profile }) {
           )}
         </div>
       </form>
+
+      {/* Help & support */}
+      <section className="flex flex-col gap-3 rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5">
+        <h2 className="text-[13px] font-medium text-white">Help & support</h2>
+        <p className="text-[12px] text-[#8A8A8A]">
+          Found a bug or have a question? Email me — I read everything.
+        </p>
+        <a
+          href={SUPPORT_MAILTO}
+          className="inline-flex w-fit items-center gap-2 rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-3.5 py-2 text-[13px] text-[#888888] transition-colors hover:text-white"
+        >
+          <Mail size={14} aria-hidden />
+          Contact support
+        </a>
+      </section>
 
       {/* Account */}
       <section className="flex flex-col gap-4 rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5">

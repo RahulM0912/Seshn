@@ -50,6 +50,24 @@ export function formatFocusLong(minutes: number): string {
   return `${h} hr ${m} min`;
 }
 
+/**
+ * A stored `subject` string → its display tags: split on commas, trim, drop
+ * empties, dedupe case-insensitively (first casing wins). Storage stays a single
+ * string — "maths, chem" becomes two tags only at render time (Step 19).
+ */
+export function splitSubjects(subject: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of subject.split(",")) {
+    const tag = part.trim();
+    const key = tag.toLowerCase();
+    if (!tag || seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+  }
+  return out;
+}
+
 /** ISO timestamp → "just now" / "2 hours ago" / "3 days ago" / "Jan 5". */
 export function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -232,22 +250,21 @@ export interface StreakWeekDay {
 }
 
 /**
- * The 7-cell streak strip ending today (oldest → today), each cell labelled with
- * its weekday initial in the user's timezone. `activeDays` is the set of local
- * day-strings (YYYY-MM-DD, user tz) on which a session was posted. The final cell
- * is always "today"; earlier cells are "done" when a session landed that day,
- * else "pending". Powers `StreakCard` (Step 11) — mirrors the mockup's strip.
+ * The 7-cell strip ending today (oldest → today), each cell labelled with its
+ * weekday initial in the user's timezone. Cells show *real activity*: a past
+ * day is "done" when that local day has a posted session (`activeDays`,
+ * YYYY-MM-DD strings in the user's tz) — so days studied before a streak broke
+ * still show, even though they're not in the current run. The final cell is
+ * always "today". Powers `StreakCard` (Step 11).
  */
 export function buildStreakWeek(
-  activeDays: Set<string>,
+  activeDays: ReadonlySet<string>,
   timeZone: string,
 ): StreakWeekDay[] {
   const now = new Date();
-  const today = dayInTimeZone(now, timeZone);
   const cells: StreakWeekDay[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const dayStr = dayInTimeZone(d, timeZone);
     const letter = new Intl.DateTimeFormat("en-US", {
       timeZone,
       weekday: "narrow",
@@ -255,7 +272,11 @@ export function buildStreakWeek(
     cells.push({
       letter,
       state:
-        dayStr === today ? "today" : activeDays.has(dayStr) ? "done" : "pending",
+        i === 0
+          ? "today"
+          : activeDays.has(dayInTimeZone(d, timeZone))
+            ? "done"
+            : "pending",
     });
   }
   return cells;

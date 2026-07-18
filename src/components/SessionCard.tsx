@@ -3,7 +3,13 @@
 import { Flame, MessageCircle } from "lucide-react";
 import type { SessionWithProfile } from "@/lib/database.types";
 import type { SessionEdit } from "@/lib/mutations";
-import { avatarColor, formatFocusTime, initials, relativeTime } from "@/lib/format";
+import {
+  avatarColor,
+  formatFocusTime,
+  initials,
+  relativeTime,
+  splitSubjects,
+} from "@/lib/format";
 import SessionCardFooter from "@/components/SessionCardFooter";
 import SessionOwnerMenu from "@/components/SessionOwnerMenu";
 import VisibilityBadge from "@/components/VisibilityBadge";
@@ -40,6 +46,10 @@ export default function SessionCard({
   const author = session.profiles;
   const av = avatarColor(author.id);
 
+  // "maths, chem" stored as one string renders as separate pills (Step 19) —
+  // display-only, capped at 3 with a "+n" overflow so a tag pile can't take over.
+  const subjects = session.subject ? splitSubjects(session.subject) : [];
+
   const completed = session.pomodoros_completed;
   const planned = session.pomodoros_planned;
   const total = planned ?? completed;
@@ -61,7 +71,7 @@ export default function SessionCard({
           <div className="truncate text-[13px] font-medium text-white">
             {author.display_name}
           </div>
-          <div className="truncate text-[11px] text-[#555555]">
+          <div className="truncate text-[11px] text-[#8A8A8A]">
             @{author.username} · {relativeTime(session.created_at)}
           </div>
         </div>
@@ -98,7 +108,7 @@ export default function SessionCard({
             className="h-[9px] w-[9px] rounded-full bg-[#2A2A2A]"
           />
         ))}
-        <span className="ml-1 text-[11px] text-[#555555]">
+        <span className="ml-1 text-[11px] text-[#8A8A8A]">
           {planned != null ? `${completed} / ${planned}` : completed}
         </span>
       </div>
@@ -107,15 +117,27 @@ export default function SessionCard({
       <div className="text-[32px] font-bold leading-none tracking-[-1px] text-white tabular-nums">
         {formatFocusTime(session.focus_minutes)}
       </div>
-      <div className="mb-2.5 mt-[3px] text-[10px] uppercase tracking-[0.08em] text-[#555555]">
+      <div className="mb-2.5 mt-[3px] text-[10px] uppercase tracking-[0.08em] text-[#8A8A8A]">
         Total focus time
       </div>
 
-      {/* Subject */}
-      {session.subject && (
-        <div className="mb-2 inline-flex items-center gap-[5px] rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2.5 py-[3px] text-[11px] text-[#22C55E]">
-          <span aria-hidden className="h-[6px] w-[6px] flex-shrink-0 rounded-full bg-[#22C55E]" />
-          {session.subject}
+      {/* Subject tags */}
+      {subjects.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          {subjects.slice(0, 3).map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-[5px] rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2.5 py-[3px] text-[11px] text-[#22C55E]"
+            >
+              <span aria-hidden className="h-[6px] w-[6px] flex-shrink-0 rounded-full bg-[#22C55E]" />
+              {tag}
+            </span>
+          ))}
+          {subjects.length > 3 && (
+            <span className="rounded-[20px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2 py-[3px] text-[11px] text-[#888888]">
+              +{subjects.length - 3}
+            </span>
+          )}
         </div>
       )}
 
@@ -137,11 +159,11 @@ export default function SessionCard({
         />
       ) : (
         <footer className="flex items-center gap-3 border-t-[0.5px] border-[#1C1C1C] pt-2.5">
-          <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
+          <span className="flex items-center gap-[5px] text-[12px] text-[#8A8A8A]">
             <Flame size={14} aria-hidden /> {session.like_count}
             <span className="sr-only">likes</span>
           </span>
-          <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
+          <span className="flex items-center gap-[5px] text-[12px] text-[#8A8A8A]">
             <MessageCircle size={14} aria-hidden /> {session.comment_count}
             <span className="sr-only">comments</span>
           </span>

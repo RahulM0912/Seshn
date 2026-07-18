@@ -60,6 +60,18 @@ export interface SoundConfig {
   volume: number; // 0..1
 }
 
+export interface FlowConfig {
+  autoStartBreaks: boolean; // focus ends → break starts running (no pause)
+  autoStartFocus: boolean; // break ends → next focus starts running
+}
+
+// Auto-start only applies to a "live" boundary — one the ticking clock just
+// crossed. Catching up after a refresh / laptop sleep always pauses at the
+// boundary (the pre-auto-start behavior), so hours away can never chain into
+// runaway phases and phantom pomodoros. 2 min absorbs background-tab timer
+// throttling while staying far below any real sleep gap.
+const AUTO_START_GRACE_MS = 2 * 60 * 1000;
+
 interface PersistedState {
   phase: TimerPhase;
   phaseStartedAt: number | null; // epoch ms the running phase's clock began
@@ -75,6 +87,8 @@ interface PersistedState {
   soundEnabled: boolean;
   tickingEnabled: boolean;
   volume: number;
+  autoStartBreaks: boolean;
+  autoStartFocus: boolean;
 }
 
 const INITIAL: PersistedState = {
@@ -92,6 +106,10 @@ const INITIAL: PersistedState = {
   soundEnabled: true,
   tickingEnabled: false,
   volume: DEFAULT_VOLUME,
+  // Auto-start is the default rhythm — the boundary pause is opt-in via the
+  // settings modal's Flow toggles.
+  autoStartBreaks: true,
+  autoStartFocus: true,
 };
 
 interface TimerState extends PersistedState {
@@ -105,6 +123,7 @@ interface TimerState extends PersistedState {
   reset: () => void;
   setConfig: (config: TimerConfig) => void;
   setSound: (sound: Partial<SoundConfig>) => void;
+  setFlow: (flow: Partial<FlowConfig>) => void;
   hydrate: () => void;
   tick: () => void;
 }
@@ -158,6 +177,8 @@ function persistedOf(s: PersistedState): PersistedState {
     soundEnabled: s.soundEnabled,
     tickingEnabled: s.tickingEnabled,
     volume: s.volume,
+    autoStartBreaks: s.autoStartBreaks,
+    autoStartFocus: s.autoStartFocus,
   };
 }
 
@@ -174,10 +195,12 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-// Advance past any phase whose time has fully elapsed. We pause at each boundary
-// so finishing a block is a deliberate moment (and so a long sleep advances at
-// most focus→break, never runs away). Returns a NEW state if the phase changed,
-// or the same reference if nothing changed.
+// Advance past any phase whose time has fully elapsed. By default we pause at
+// each boundary so finishing a block is a deliberate moment (and so a long
+// sleep advances at most focus→break, never runs away). The auto-start flow
+// prefs skip that pause — but only on a live boundary (see AUTO_START_GRACE_MS).
+// Returns a NEW state if the phase changed, or the same reference if nothing
+// changed.
 function advanceIfElapsed(s: PersistedState): PersistedState {
   if (!isRunning(s) || s.phaseStartedAt == null) return s;
   const total = phaseDurationMs(s);
@@ -185,12 +208,14 @@ function advanceIfElapsed(s: PersistedState): PersistedState {
   if (elapsed < total) return s;
 
   const completedAt = s.phaseStartedAt + s.accumulatedPauseMs + total;
+  const live = Date.now() - completedAt < AUTO_START_GRACE_MS;
   if (s.phase === "focus") {
     return {
       ...s,
       phase: "break",
       phaseStartedAt: completedAt,
-      pausedAt: completedAt, // ready & paused — user starts the break
+      // ready & paused — user starts the break (unless auto-start is on)
+      pausedAt: s.autoStartBreaks && live ? null : completedAt,
       accumulatedPauseMs: 0,
       pomodorosCompleted: s.pomodorosCompleted + 1,
     };
@@ -199,7 +224,7 @@ function advanceIfElapsed(s: PersistedState): PersistedState {
     ...s,
     phase: "focus",
     phaseStartedAt: completedAt,
-    pausedAt: completedAt,
+    pausedAt: s.autoStartFocus && live ? null : completedAt,
     accumulatedPauseMs: 0,
   };
 }
@@ -326,8 +351,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
   reset() {
     const s = get();
-    // Keep all config (durations, goal, cadence, sound) across a reset; only the
-    // running session goes idle.
+    // Keep all config (durations, goal, cadence, sound, flow) across a reset;
+    // only the running session goes idle.
     const next: PersistedState = {
       ...INITIAL,
       focusMs: s.focusMs,
@@ -338,6 +363,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       soundEnabled: s.soundEnabled,
       tickingEnabled: s.tickingEnabled,
       volume: s.volume,
+      autoStartBreaks: s.autoStartBreaks,
+      autoStartFocus: s.autoStartFocus,
     };
     persist(next);
     set({ ...next, now: Date.now() });
@@ -366,10 +393,12 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         LIMITS.longBreakInterval.min,
         LIMITS.longBreakInterval.max,
       ),
-      // sound prefs are independent of a reset
+      // sound + flow prefs are independent of a reset
       soundEnabled: s.soundEnabled,
       tickingEnabled: s.tickingEnabled,
       volume: s.volume,
+      autoStartBreaks: s.autoStartBreaks,
+      autoStartFocus: s.autoStartFocus,
     };
     persist(next);
     set({ ...next, now: Date.now() });
@@ -383,6 +412,23 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       ...(sound.tickingEnabled != null ? { tickingEnabled: sound.tickingEnabled } : {}),
       ...(sound.volume != null
         ? { volume: Math.min(1, Math.max(0, sound.volume)) }
+        : {}),
+    };
+    persist(next);
+    set(next);
+  },
+
+  setFlow(flow) {
+    // Auto-start prefs apply live (like sound — they don't change any phase
+    // length, so they're not idle-locked). Takes effect at the next boundary.
+    const s = get();
+    const next: PersistedState = {
+      ...persistedOf(s),
+      ...(flow.autoStartBreaks != null
+        ? { autoStartBreaks: flow.autoStartBreaks }
+        : {}),
+      ...(flow.autoStartFocus != null
+        ? { autoStartFocus: flow.autoStartFocus }
         : {}),
     };
     persist(next);
@@ -504,6 +550,8 @@ export interface TimerView {
   soundEnabled: boolean;
   tickingEnabled: boolean;
   volume: number;
+  autoStartBreaks: boolean;
+  autoStartFocus: boolean;
   start: () => void;
   pause: () => void;
   resume: () => void;
@@ -512,6 +560,7 @@ export interface TimerView {
   reset: () => void;
   setConfig: (config: TimerConfig) => void;
   setSound: (sound: Partial<SoundConfig>) => void;
+  setFlow: (flow: Partial<FlowConfig>) => void;
 }
 
 export function useTimer(): TimerView {
@@ -548,6 +597,8 @@ export function useTimer(): TimerView {
     soundEnabled: s.soundEnabled,
     tickingEnabled: s.tickingEnabled,
     volume: s.volume,
+    autoStartBreaks: s.autoStartBreaks,
+    autoStartFocus: s.autoStartFocus,
     start: s.start,
     pause: s.pause,
     resume: s.resume,
@@ -556,5 +607,6 @@ export function useTimer(): TimerView {
     reset: s.reset,
     setConfig: s.setConfig,
     setSound: s.setSound,
+    setFlow: s.setFlow,
   };
 }

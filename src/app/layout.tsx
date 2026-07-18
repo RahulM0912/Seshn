@@ -51,6 +51,14 @@ export const metadata: Metadata = {
   creator: "Seshn",
   publisher: "Seshn",
   category: "productivity",
+  // iOS home-screen installs (Step 25): Safari ignores the manifest's display
+  // mode, so this meta is what makes an added-to-home-screen Seshn launch
+  // standalone there. Chromium reads the manifest (app/manifest.ts) instead.
+  appleWebApp: {
+    capable: true,
+    title: "Seshn",
+    statusBarStyle: "black-translucent",
+  },
   // Note: canonical is set per-page (not here) so it doesn't cascade — a
   // canonical on the root layout would make every page that doesn't override it
   // claim "/" as its canonical. The landing page sets its own in app/page.tsx.

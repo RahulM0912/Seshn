@@ -25,6 +25,8 @@ export interface Viewer {
   id: string;
   username: string;
   displayName: string;
+  /** Daily focus target in minutes; null = no goal (navbar ring hidden). */
+  dailyGoalMinutes: number | null;
 }
 
 export const getViewer = cache(async (): Promise<Viewer | null> => {
@@ -34,9 +36,14 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("username, display_name, onboarded")
+    .select("username, display_name, onboarded, daily_goal_minutes")
     .eq("id", user.id)
     .maybeSingle();
   if (!data?.onboarded) return null;
-  return { id: user.id, username: data.username, displayName: data.display_name };
+  return {
+    id: user.id,
+    username: data.username,
+    displayName: data.display_name,
+    dailyGoalMinutes: data.daily_goal_minutes,
+  };
 });

@@ -1,37 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Minus, Plus, Volume2, VolumeX, X } from "lucide-react";
 import { LIMITS, type TimerView } from "@/lib/timer-store";
 import { playAlarm as ringAlarm } from "@/lib/timer-sounds";
+import { getDailyGoal } from "@/lib/client-queries";
+import { updateDailyGoal } from "@/lib/mutations";
+import { formatFocusLong } from "@/lib/format";
 
 // Pomodoro settings modal — opened from the timer card's gear. Holds the things
 // too numerous for the old inline popover: custom focus / short break / long break
 // lengths, the session goal (dot count) and the long-break interval (long break
-// after every N), and sound preferences.
+// after every N), the daily focus target, and sound preferences.
 //
 // Durations + session fields are committed on Save via setConfig (resetting to a
 // fresh idle session) and are locked while a session runs. Sound prefs apply live
 // — toggling or sliding gives immediate feedback, and can change anytime.
+//
+// The daily target is the one ACCOUNT-level field here (a profiles column that
+// drives the navbar ring — Step 20); everything else is this device's store. It
+// lives in this modal anyway because users look for focus config at the timer,
+// not on the profile settings page. Loaded on open, written on Save.
 
 function clampField(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
+// Daily-target stepper bounds: 15-min steps, stepping below the minimum turns
+// it off (null), and turning it on starts at 60 — one click covers the common
+// case instead of four.
+const GOAL_STEP = 15;
+const GOAL_MIN = 15;
+const GOAL_MAX = 720;
+const GOAL_START = 60;
+
 export default function TimerSettingsModal({
   t,
+  userId,
   onClose,
 }: {
   t: TimerView;
+  userId: string;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const [focus, setFocus] = useState(t.focusMin);
   const [shortBreak, setShortBreak] = useState(t.shortBreakMin);
   const [longBreak, setLongBreak] = useState(t.longBreakMin);
   const [sessionGoal, setSessionGoal] = useState(t.sessionGoal);
   const [longBreakInterval, setLongBreakInterval] = useState(t.longBreakInterval);
+
+  // Daily focus target (account-level). Loaded when the modal opens; `saved`
+  // remembers what the DB holds so Save only writes when it actually changed.
+  const [goalMinutes, setGoalMinutes] = useState<number | null>(null);
+  const [goalLoaded, setGoalLoaded] = useState(false);
+  const [goalError, setGoalError] = useState(false);
+  const savedGoal = useRef<number | null>(null);
+  useEffect(() => {
+    let on = true;
+    void getDailyGoal(userId).then((g) => {
+      if (!on) return;
+      savedGoal.current = g;
+      setGoalMinutes(g);
+      setGoalLoaded(true);
+    });
+    return () => {
+      on = false;
+    };
+  }, [userId]);
 
   // Remembers the volume to restore when the speaker is un-muted. Seeded with the
   // current level (or a sensible default if we open already at zero) and kept in
@@ -60,7 +99,26 @@ export default function TimerSettingsModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  function save() {
+  // Save (idle) and Done (locked) both land here: the daily target commits in
+  // either mode (it's account-level, not a phase length — no reason to lock it),
+  // while the timer config only commits when idle. A failed goal write keeps the
+  // modal open so the user's choice isn't silently dropped.
+  async function save() {
+    if (goalLoaded && goalMinutes !== savedGoal.current) {
+      setGoalError(false);
+      const { error } = await updateDailyGoal(userId, goalMinutes);
+      if (error) {
+        console.error("updateDailyGoal:", error.message);
+        setGoalError(true);
+        return;
+      }
+      savedGoal.current = goalMinutes;
+      router.refresh(); // the navbar ring reads the goal from the server
+    }
+    if (locked) {
+      onClose();
+      return;
+    }
     t.setConfig({
       focusMin: clampField(focus, LIMITS.focusMin.min, LIMITS.focusMin.max),
       shortBreakMin: clampField(
@@ -133,11 +191,12 @@ export default function TimerSettingsModal({
         {/* Scrollable body — keeps the header and the action bar pinned so the
             Save/Done buttons never get clipped when the modal is taller than the
             viewport (short screens, browser zoom). */}
-        <div className="scrollbar-slim flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+        <div className="scrollbar-slim flex flex-1 flex-col gap-5 overflow-y-auto overscroll-contain p-5">
           {locked && (
             <p className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2 text-[11px] leading-relaxed text-[#888888]">
-              A session is running — durations are locked. Sound can still be
-              changed. Finish or restart the timer to edit lengths.
+              A session is running — durations are locked. Sound, auto-start,
+              and the daily target can still be changed. Finish or restart the
+              timer to edit lengths.
             </p>
           )}
 
@@ -196,10 +255,95 @@ export default function TimerSettingsModal({
               max={LIMITS.longBreakInterval.max}
               disabled={locked}
             />
-            <p className="text-[11px] leading-relaxed text-[#555555]">
+            <p className="text-[11px] leading-relaxed text-[#8A8A8A]">
               You&apos;re aiming for {sessionGoal} pomodoro{sessionGoal === 1 ? "" : "s"}{" "}
               (the dots on the card), with a long break after every{" "}
               {longBreakInterval}.
+            </p>
+          </section>
+
+          {/* Daily target (Step 20) — account-level, synced on Save/Done. Not
+              idle-locked: it's a day-level goal, not a phase length, so it stays
+              editable mid-session (the locked Done button commits it). */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
+              Daily target
+            </p>
+            <div
+              className={`flex items-center justify-between gap-2 ${
+                !goalLoaded ? "opacity-50" : ""
+              }`}
+            >
+              <span className="text-[13px] text-[#CCCCCC]">Daily focus target</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setGoalMinutes((g) =>
+                      g === null || g - GOAL_STEP < GOAL_MIN
+                        ? null
+                        : g - GOAL_STEP,
+                    )
+                  }
+                  disabled={!goalLoaded || goalMinutes === null}
+                  aria-label="Decrease daily focus target"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Minus size={13} aria-hidden />
+                </button>
+                <span className="flex h-8 min-w-[88px] items-center justify-center rounded-[6px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-2 text-[13px] tabular-nums">
+                  {goalMinutes !== null ? (
+                    <span className="text-white">{formatFocusLong(goalMinutes)}</span>
+                  ) : (
+                    <span className="text-[#8A8A8A]">Off</span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setGoalMinutes((g) =>
+                      g === null ? GOAL_START : Math.min(GOAL_MAX, g + GOAL_STEP),
+                    )
+                  }
+                  disabled={!goalLoaded || goalMinutes === GOAL_MAX}
+                  aria-label="Increase daily focus target"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] text-[#888888] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus size={13} aria-hidden />
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] leading-relaxed text-[#8A8A8A]">
+              Fills the ring around your avatar as you focus each day. Synced to
+              your account.
+            </p>
+            {goalError && (
+              <p role="alert" className="text-[11px] text-red-400">
+                Couldn&apos;t save your daily target. Please try again.
+              </p>
+            )}
+          </section>
+
+          {/* Flow — applies live (like sound): no phase length changes, so not
+              idle-locked. Takes effect at the next boundary. */}
+          <section className="flex flex-col gap-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#22C55E]">
+              Flow
+            </p>
+            <Toggle
+              label="Auto-start breaks"
+              checked={t.autoStartBreaks}
+              onChange={(v) => t.setFlow({ autoStartBreaks: v })}
+            />
+            <Toggle
+              label="Auto-start next focus"
+              checked={t.autoStartFocus}
+              onChange={(v) => t.setFlow({ autoStartFocus: v })}
+            />
+            <p className="text-[11px] leading-relaxed text-[#8A8A8A]">
+              Shortcuts: <kbd className="text-[#888888]">Space</kbd> start/pause ·{" "}
+              <kbd className="text-[#888888]">S</kbd> skip break ·{" "}
+              <kbd className="text-[#888888]">E</kbd> end session.
             </p>
           </section>
 
@@ -261,12 +405,12 @@ export default function TimerSettingsModal({
 
         {/* Pinned action bar — divider separates it from the scrolling body.
             While locked there are no durations to commit (sound applies live),
-            so we just offer Done. */}
+            so we offer Done — which still commits a changed daily target. */}
         <div className="flex justify-end gap-2 border-t-[0.5px] border-[#2A2A2A] p-5 pt-4">
           {locked ? (
             <button
               type="button"
-              onClick={onClose}
+              onClick={save}
               className="cursor-pointer rounded-[20px] bg-[#22C55E] px-4 py-2 text-[13px] font-medium text-[#0A0A0A] transition-colors hover:bg-[#1FB055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
             >
               Done
@@ -351,7 +495,7 @@ function Stepper({
           <Plus size={13} aria-hidden />
         </button>
         {unit && (
-          <span className="w-7 text-[11px] text-[#555555]">{unit}</span>
+          <span className="w-7 text-[11px] text-[#8A8A8A]">{unit}</span>
         )}
       </div>
     </div>

@@ -294,7 +294,7 @@ function CardImage(cfg: CardConfig) {
                 fontFamily: "DM Sans",
                 fontSize: "28px",
                 fontWeight: 500,
-                color: "#555555",
+                color: "#8A8A8A",
               }}
             >
               seshn.in

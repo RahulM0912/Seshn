@@ -10,6 +10,7 @@
 // PostgREST `profiles(*)` embed, which returned no rows against this instance.
 
 import { supabase } from "@/lib/supabase";
+import { splitSubjects } from "@/lib/format";
 import type {
   CommentWithProfile,
   NotificationFeedItem,
@@ -139,4 +140,95 @@ export async function getNotifications(
       };
     })
     .filter((n): n is NotificationFeedItem => n !== null);
+}
+
+/**
+ * The viewer's current streak count, straight off the `streaks` row (0 before
+ * the first session or on error). Used by the post-session success step to
+ * celebrate an extension — it compares the value fetched at modal-open with the
+ * one fetched after the insert, so no timezone math is needed here.
+ */
+/**
+ * The viewer's stored daily focus goal in minutes (null = off) — read when the
+ * timer settings modal opens so its "Daily target" stepper starts from the
+ * saved value (Step 20). Null on error too: the modal then simply shows "Off",
+ * and no write happens unless the user touches the stepper.
+ */
+export async function getDailyGoal(userId: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("daily_goal_minutes")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("getDailyGoal:", error.message);
+    return null;
+  }
+  return data?.daily_goal_minutes ?? null;
+}
+
+/**
+ * Today's focus minutes for a user, in their timezone — the same DB RPC the
+ * server-side `getDailyFocusMinutes` (queries.ts) uses, callable from the
+ * browser for the navbar goal ring (Step 20). 0 on error.
+ */
+export async function getDailyFocusMinutes(userId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("get_daily_focus_minutes", {
+    p_user_id: userId,
+  });
+  if (error) {
+    console.error("getDailyFocusMinutes:", error.message);
+    return 0;
+  }
+  return data ?? 0;
+}
+
+/**
+ * The viewer's most recently used subject tags, newest first — the tap-to-fill
+ * chips above the subject input in the post modal (Step 19). Reads a window of
+ * the user's own recent sessions (RLS: owners see all visibilities), splits
+ * comma-joined subjects into tags, and dedupes case-insensitively. `[]` on
+ * error or for a first-time poster (the chips row simply doesn't render).
+ */
+export async function getRecentSubjects(
+  userId: string,
+  limit = 5,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("subject")
+    .eq("user_id", userId)
+    .not("subject", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) {
+    console.error("getRecentSubjects:", error.message);
+    return [];
+  }
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const row of data ?? []) {
+    for (const tag of splitSubjects(row.subject ?? "")) {
+      const key = tag.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(tag);
+      if (out.length === limit) return out;
+    }
+  }
+  return out;
+}
+
+export async function getStreakCount(userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("streaks")
+    .select("current_streak")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("getStreakCount:", error.message);
+    return 0;
+  }
+  return data?.current_streak ?? 0;
 }

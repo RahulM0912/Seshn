@@ -40,18 +40,19 @@ function FriendsSkeleton() {
   );
 }
 
+// Desktop-only since Step 24: phones get the timer on the /timer tab instead of
+// the old stacked-above-the-feed layout, so the whole aside hides below md (the
+// old `order` reflow + the md-gated inner wrapper are gone with it).
 export default function AppSidebar({ userId }: { userId: string }) {
   return (
-    <aside className="scrollbar-slim order-1 flex flex-col gap-3 p-4 md:order-2 md:overflow-y-auto">
-      <TimerCard />
-      <div className="hidden flex-col gap-3 md:flex">
-        <Suspense fallback={<StreakSkeleton />}>
-          <StreakCard userId={userId} />
-        </Suspense>
-        <Suspense fallback={<FriendsSkeleton />}>
-          <FriendsActivityCard userId={userId} />
-        </Suspense>
-      </div>
+    <aside className="scrollbar-slim hidden flex-col gap-3 p-4 md:flex md:overflow-y-auto">
+      <TimerCard userId={userId} />
+      <Suspense fallback={<StreakSkeleton />}>
+        <StreakCard userId={userId} />
+      </Suspense>
+      <Suspense fallback={<FriendsSkeleton />}>
+        <FriendsActivityCard userId={userId} />
+      </Suspense>
     </aside>
   );
 }
