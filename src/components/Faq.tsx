@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import { SUPPORT_MAILTO } from "@/lib/support";
 
 // Three-question FAQ (Step 26) — the objections people actually have, nothing
 // more. Native <details>/<summary>: accordion behavior, keyboard support, and
@@ -47,6 +48,17 @@ export default function Faq() {
             </details>
           ))}
         </div>
+
+        <p className="mt-8 text-sm text-[#888888]">
+          Still have questions?{" "}
+          <a
+            href={SUPPORT_MAILTO}
+            className="text-[#22C55E] underline underline-offset-4 transition-colors hover:text-[#1FB055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/50 rounded-sm"
+          >
+            Email me
+          </a>{" "}
+          — I read everything.
+        </p>
       </div>
     </section>
   );

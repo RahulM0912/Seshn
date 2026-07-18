@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, LogOut, X } from "lucide-react";
+import { Check, Loader2, LogOut, Mail, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { SUPPORT_MAILTO } from "@/lib/support";
 import { updateProfile, updateTimezone } from "@/lib/mutations";
 import { isUsernameAvailable } from "@/lib/client-queries";
 import type { Profile } from "@/lib/database.types";
@@ -262,6 +263,21 @@ export default function SettingsForm({ profile }: { profile: Profile }) {
           )}
         </div>
       </form>
+
+      {/* Help & support */}
+      <section className="flex flex-col gap-3 rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5">
+        <h2 className="text-[13px] font-medium text-white">Help & support</h2>
+        <p className="text-[12px] text-[#8A8A8A]">
+          Found a bug or have a question? Email me — I read everything.
+        </p>
+        <a
+          href={SUPPORT_MAILTO}
+          className="inline-flex w-fit items-center gap-2 rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-3.5 py-2 text-[13px] text-[#888888] transition-colors hover:text-white"
+        >
+          <Mail size={14} aria-hidden />
+          Contact support
+        </a>
+      </section>
 
       {/* Account */}
       <section className="flex flex-col gap-4 rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] p-5">
