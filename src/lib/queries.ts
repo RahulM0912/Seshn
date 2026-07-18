@@ -222,9 +222,23 @@ export async function getFollowers(userId: string): Promise<Profile[]> {
 }
 
 /**
+ * Site-wide total of minutes ever focused on Seshn — the landing page's one live
+ * number (Step 26). SECURITY DEFINER RPC granted to anon, so the signed-out
+ * landing render can call it; it returns a single aggregate, nothing per-user.
+ */
+export async function getTotalFocusMinutes(): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_total_focus_minutes");
+  if (error) console.error("getTotalFocusMinutes:", error.message);
+  return data ?? 0;
+}
+
+/**
  * Profile search for Explore (Step 12 — "people to follow"). Case-insensitive
  * substring match on display name OR @username, excluding the viewer's own row.
  * Profiles are world-readable under RLS, so any signed-in user can discover anyone.
+ * Un-onboarded rows (placeholder `@user_…` handles, no chosen name) are filtered
+ * out — they read as broken entries in the list (Step 26).
  *
  * The raw query is sanitized before it's spliced into the PostgREST `or(...)`
  * filter: commas/parens would change the filter's meaning and `%`/`_` are `ilike`
@@ -244,6 +258,7 @@ export async function searchProfiles(
     .from("profiles")
     .select("*")
     .neq("id", viewerId)
+    .eq("onboarded", true)
     .or(`display_name.ilike.%${safe}%,username.ilike.%${safe}%`)
     .order("username", { ascending: true })
     .limit(limit);
@@ -256,6 +271,7 @@ export async function searchProfiles(
  * except the viewer, newest first. Followed and not-yet-followed alike are returned
  * (each row carries its own follow state), so the list never looks empty on a small
  * instance and matches what `searchProfiles` returns. RLS-safe (profiles are public).
+ * Un-onboarded placeholder profiles are excluded, same as search (Step 26).
  */
 export async function getDiscoverProfiles(
   viewerId: string,
@@ -266,6 +282,7 @@ export async function getDiscoverProfiles(
     .from("profiles")
     .select("*")
     .neq("id", viewerId)
+    .eq("onboarded", true)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) console.error("getDiscoverProfiles:", error.message);

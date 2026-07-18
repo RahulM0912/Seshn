@@ -24,7 +24,7 @@ function Section({
 }) {
   return (
     <section>
-      <h2 className="mb-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[#555555]">
+      <h2 className="mb-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[#8A8A8A]">
         {title}
         {count > 0 && <span className="text-[#888888]"> · {count}</span>}
       </h2>

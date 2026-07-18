@@ -30,7 +30,7 @@ function Stat({ value, label }: { value: React.ReactNode; label: string }) {
       <span className="text-[18px] font-semibold leading-none text-white tabular-nums">
         {value}
       </span>
-      <span className="mt-1.5 text-[10px] uppercase tracking-[0.06em] text-[#555555]">
+      <span className="mt-1.5 text-[10px] uppercase tracking-[0.06em] text-[#8A8A8A]">
         {label}
       </span>
     </div>
@@ -110,7 +110,7 @@ export default async function ProfileContent({
             <h1 className="truncate text-xl font-semibold text-white">
               {profile.display_name}
             </h1>
-            <p className="truncate text-[13px] text-[#555555]">
+            <p className="truncate text-[13px] text-[#8A8A8A]">
               @{profile.username}
             </p>
             {profile.bio && (

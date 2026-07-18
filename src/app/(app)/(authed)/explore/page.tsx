@@ -43,7 +43,7 @@ export default async function ExplorePage({
       <FeedTabs active="explore" />
       <ExploreSearch initialQuery={q} />
 
-      <p className="mt-1 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[#555555]">
+      <p className="mt-1 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-[#8A8A8A]">
         {searching ? `Results · ${people.length}` : "People"}
       </p>
 

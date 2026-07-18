@@ -43,7 +43,7 @@ export default async function ActivationCard({ userId }: { userId: string }) {
           <Rocket size={14} className="text-[#22C55E]" aria-hidden />
           Getting started
         </span>
-        <span className="text-[11px] tabular-nums text-[#555555]">
+        <span className="text-[11px] tabular-nums text-[#8A8A8A]">
           {doneCount} of 3
         </span>
       </div>
@@ -56,7 +56,7 @@ export default async function ActivationCard({ userId }: { userId: string }) {
                 <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#22C55E]">
                   <Check size={11} className="text-[#0A0A0A]" aria-hidden />
                 </span>
-                <span className="text-[12px] text-[#555555] line-through">
+                <span className="text-[12px] text-[#8A8A8A] line-through">
                   {step.label}
                 </span>
               </div>
@@ -70,7 +70,7 @@ export default async function ActivationCard({ userId }: { userId: string }) {
                   className="h-[18px] w-[18px] shrink-0 rounded-full border-[1.5px] border-[#2A2A2A] transition-colors group-hover:border-[#22C55E]"
                 />
                 <span className="flex-1 text-[12px] text-white">{step.label}</span>
-                <span className="flex items-center gap-1 text-[11px] text-[#555555] transition-colors group-hover:text-[#22C55E]">
+                <span className="flex items-center gap-1 text-[11px] text-[#8A8A8A] transition-colors group-hover:text-[#22C55E]">
                   {step.hint}
                   <ArrowRight size={11} aria-hidden />
                 </span>

@@ -191,7 +191,7 @@ export default function TimerSettingsModal({
         {/* Scrollable body — keeps the header and the action bar pinned so the
             Save/Done buttons never get clipped when the modal is taller than the
             viewport (short screens, browser zoom). */}
-        <div className="scrollbar-slim flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+        <div className="scrollbar-slim flex flex-1 flex-col gap-5 overflow-y-auto overscroll-contain p-5">
           {locked && (
             <p className="rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2 text-[11px] leading-relaxed text-[#888888]">
               A session is running — durations are locked. Sound, auto-start,
@@ -255,7 +255,7 @@ export default function TimerSettingsModal({
               max={LIMITS.longBreakInterval.max}
               disabled={locked}
             />
-            <p className="text-[11px] leading-relaxed text-[#555555]">
+            <p className="text-[11px] leading-relaxed text-[#8A8A8A]">
               You&apos;re aiming for {sessionGoal} pomodoro{sessionGoal === 1 ? "" : "s"}{" "}
               (the dots on the card), with a long break after every{" "}
               {longBreakInterval}.
@@ -295,7 +295,7 @@ export default function TimerSettingsModal({
                   {goalMinutes !== null ? (
                     <span className="text-white">{formatFocusLong(goalMinutes)}</span>
                   ) : (
-                    <span className="text-[#555555]">Off</span>
+                    <span className="text-[#8A8A8A]">Off</span>
                   )}
                 </span>
                 <button
@@ -313,7 +313,7 @@ export default function TimerSettingsModal({
                 </button>
               </div>
             </div>
-            <p className="text-[11px] leading-relaxed text-[#555555]">
+            <p className="text-[11px] leading-relaxed text-[#8A8A8A]">
               Fills the ring around your avatar as you focus each day. Synced to
               your account.
             </p>
@@ -340,7 +340,7 @@ export default function TimerSettingsModal({
               checked={t.autoStartFocus}
               onChange={(v) => t.setFlow({ autoStartFocus: v })}
             />
-            <p className="text-[11px] leading-relaxed text-[#555555]">
+            <p className="text-[11px] leading-relaxed text-[#8A8A8A]">
               Shortcuts: <kbd className="text-[#888888]">Space</kbd> start/pause ·{" "}
               <kbd className="text-[#888888]">S</kbd> skip break ·{" "}
               <kbd className="text-[#888888]">E</kbd> end session.
@@ -495,7 +495,7 @@ function Stepper({
           <Plus size={13} aria-hidden />
         </button>
         {unit && (
-          <span className="w-7 text-[11px] text-[#555555]">{unit}</span>
+          <span className="w-7 text-[11px] text-[#8A8A8A]">{unit}</span>
         )}
       </div>
     </div>

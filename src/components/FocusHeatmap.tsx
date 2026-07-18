@@ -152,13 +152,13 @@ export default function FocusHeatmap({
               they never collide with the range button. */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:gap-x-5">
             <div>
-              <span className="text-[11px] text-[#555555]">Total focus: </span>
+              <span className="text-[11px] text-[#8A8A8A]">Total focus: </span>
               <span className="text-[11px] font-semibold text-white tabular-nums">
                 {activeDays === 0 ? "—" : formatFocusLong(totalMinutes)}
               </span>
             </div>
             <div>
-              <span className="text-[11px] text-[#555555]">Active days: </span>
+              <span className="text-[11px] text-[#8A8A8A]">Active days: </span>
               <span className="text-[11px] font-semibold text-white tabular-nums">
                 {activeDays}
               </span>
@@ -187,7 +187,7 @@ export default function FocusHeatmap({
             {menuOpen && (
               <div
                 role="listbox"
-                className="absolute right-0 top-9 z-30 flex max-h-64 w-32 flex-col overflow-y-auto rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] py-1 shadow-lg shadow-black/40"
+                className="absolute right-0 top-9 z-30 flex max-h-64 w-32 flex-col overflow-y-auto overscroll-contain rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] py-1 shadow-lg shadow-black/40"
               >
                 {options.map((opt) => {
                   const selected = opt === view;
@@ -229,7 +229,7 @@ export default function FocusHeatmap({
           {weeks.map((_, col) => (
             <div key={col} className="relative h-[10px] min-w-0 flex-1">
               {labelByCol.has(col) && (
-                <span className="absolute left-0 top-0 whitespace-nowrap text-[9px] leading-none text-[#555555]">
+                <span className="absolute left-0 top-0 whitespace-nowrap text-[9px] leading-none text-[#8A8A8A]">
                   {labelByCol.get(col)}
                 </span>
               )}
@@ -244,7 +244,7 @@ export default function FocusHeatmap({
             {DAY_LETTERS.map((letter, i) => (
               <span
                 key={i}
-                className="flex flex-1 items-center justify-center text-[8px] leading-none text-[#555555]"
+                className="flex flex-1 items-center justify-center text-[8px] leading-none text-[#8A8A8A]"
               >
                 {letter}
               </span>
@@ -302,7 +302,7 @@ export default function FocusHeatmap({
 
       {/* Intensity legend. */}
       <div className="mt-3 flex items-center justify-end gap-1.5">
-        <span className="text-[9px] text-[#555555]">Less</span>
+        <span className="text-[9px] text-[#8A8A8A]">Less</span>
         {LEVEL_BG.map((bg, i) => (
           <span
             key={i}
@@ -311,7 +311,7 @@ export default function FocusHeatmap({
             className="h-[10px] w-[10px] rounded-[2px]"
           />
         ))}
-        <span className="text-[9px] text-[#555555]">More</span>
+        <span className="text-[9px] text-[#8A8A8A]">More</span>
       </div>
 
       {/* Owner-only: clicking a day opens its share-able recap. Keyed by date so

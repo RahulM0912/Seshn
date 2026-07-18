@@ -287,6 +287,10 @@ export interface Database {
         Args: { p_user_id: string };
         Returns: { followers: number; following: number }[];
       };
+      get_total_focus_minutes: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       get_unread_notification_count: {
         Args: Record<PropertyKey, never>;
         Returns: number;

@@ -154,7 +154,7 @@ export default function DaySummaryModal({
                 <span className="text-[18px] font-semibold leading-none text-white tabular-nums">
                   {summary.sessionCount}
                 </span>
-                <span className="mt-1.5 text-[10px] uppercase tracking-[0.06em] text-[#555555]">
+                <span className="mt-1.5 text-[10px] uppercase tracking-[0.06em] text-[#8A8A8A]">
                   Sessions
                 </span>
               </div>
@@ -162,7 +162,7 @@ export default function DaySummaryModal({
                 <span className="text-[18px] font-semibold leading-none text-white tabular-nums">
                   {summary.pomodoros}
                 </span>
-                <span className="mt-1.5 text-[10px] uppercase tracking-[0.06em] text-[#555555]">
+                <span className="mt-1.5 text-[10px] uppercase tracking-[0.06em] text-[#8A8A8A]">
                   Pomodoros
                 </span>
               </div>

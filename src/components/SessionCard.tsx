@@ -71,7 +71,7 @@ export default function SessionCard({
           <div className="truncate text-[13px] font-medium text-white">
             {author.display_name}
           </div>
-          <div className="truncate text-[11px] text-[#555555]">
+          <div className="truncate text-[11px] text-[#8A8A8A]">
             @{author.username} · {relativeTime(session.created_at)}
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function SessionCard({
             className="h-[9px] w-[9px] rounded-full bg-[#2A2A2A]"
           />
         ))}
-        <span className="ml-1 text-[11px] text-[#555555]">
+        <span className="ml-1 text-[11px] text-[#8A8A8A]">
           {planned != null ? `${completed} / ${planned}` : completed}
         </span>
       </div>
@@ -117,7 +117,7 @@ export default function SessionCard({
       <div className="text-[32px] font-bold leading-none tracking-[-1px] text-white tabular-nums">
         {formatFocusTime(session.focus_minutes)}
       </div>
-      <div className="mb-2.5 mt-[3px] text-[10px] uppercase tracking-[0.08em] text-[#555555]">
+      <div className="mb-2.5 mt-[3px] text-[10px] uppercase tracking-[0.08em] text-[#8A8A8A]">
         Total focus time
       </div>
 
@@ -159,11 +159,11 @@ export default function SessionCard({
         />
       ) : (
         <footer className="flex items-center gap-3 border-t-[0.5px] border-[#1C1C1C] pt-2.5">
-          <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
+          <span className="flex items-center gap-[5px] text-[12px] text-[#8A8A8A]">
             <Flame size={14} aria-hidden /> {session.like_count}
             <span className="sr-only">likes</span>
           </span>
-          <span className="flex items-center gap-[5px] text-[12px] text-[#555555]">
+          <span className="flex items-center gap-[5px] text-[12px] text-[#8A8A8A]">
             <MessageCircle size={14} aria-hidden /> {session.comment_count}
             <span className="sr-only">comments</span>
           </span>

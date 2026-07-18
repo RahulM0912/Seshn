@@ -123,9 +123,9 @@ export default function CommentSection({
   return (
     <div className="mt-3 border-t-[0.5px] border-[#1C1C1C] pt-3">
       {loading ? (
-        <p className="text-[12px] text-[#555555]">Loading comments…</p>
+        <p className="text-[12px] text-[#8A8A8A]">Loading comments…</p>
       ) : comments.length === 0 ? (
-        <p className="text-[12px] text-[#555555]">No comments yet — be the first.</p>
+        <p className="text-[12px] text-[#8A8A8A]">No comments yet — be the first.</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {comments.map((c) => {
@@ -145,7 +145,7 @@ export default function CommentSection({
                     <span className="truncate text-[12px] font-medium text-white">
                       {c.profiles.display_name}
                     </span>
-                    <span className="flex-shrink-0 text-[10px] text-[#555555]">
+                    <span className="flex-shrink-0 text-[10px] text-[#8A8A8A]">
                       {relativeTime(c.created_at)}
                       {c.edited_at && " · edited"}
                     </span>
@@ -155,7 +155,7 @@ export default function CommentSection({
                           type="button"
                           onClick={() => startEdit(c)}
                           aria-label="Edit comment"
-                          className="cursor-pointer rounded p-0.5 text-[#555555] transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E]"
+                          className="cursor-pointer rounded p-0.5 text-[#8A8A8A] transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#22C55E]"
                         >
                           <Pencil size={12} aria-hidden />
                         </button>
@@ -163,7 +163,7 @@ export default function CommentSection({
                           type="button"
                           onClick={() => remove(c.id)}
                           aria-label="Delete comment"
-                          className="cursor-pointer rounded p-0.5 text-[#555555] transition-colors hover:text-[#F87171] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#F87171]"
+                          className="cursor-pointer rounded p-0.5 text-[#8A8A8A] transition-colors hover:text-[#F87171] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#F87171]"
                         >
                           <Trash2 size={12} aria-hidden />
                         </button>
@@ -194,7 +194,7 @@ export default function CommentSection({
                             cancelEdit();
                           }
                         }}
-                        className="w-full resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-1.5 text-[12px] leading-[1.4] text-white placeholder:text-[#555555] focus:border-[#22C55E] focus:outline-none"
+                        className="w-full resize-none rounded-[8px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-1.5 text-[12px] leading-[1.4] text-white placeholder:text-[#8A8A8A] focus:border-[#22C55E] focus:outline-none"
                       />
                       <div className="mt-1 flex items-center gap-2">
                         <button
@@ -246,7 +246,7 @@ export default function CommentSection({
               post();
             }
           }}
-          className="min-h-[36px] flex-1 resize-none rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-3 py-2 text-[12px] leading-[1.4] text-white placeholder:text-[#555555] focus:border-[#22C55E] focus:outline-none"
+          className="min-h-[36px] flex-1 resize-none rounded-[10px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-3 py-2 text-[12px] leading-[1.4] text-white placeholder:text-[#8A8A8A] focus:border-[#22C55E] focus:outline-none"
         />
         <button
           type="submit"
@@ -257,7 +257,7 @@ export default function CommentSection({
         </button>
       </form>
       {body.length > 0 && (
-        <div className="mt-1 text-right text-[10px] tabular-nums text-[#555555]">
+        <div className="mt-1 text-right text-[10px] tabular-nums text-[#8A8A8A]">
           {body.length}/{MAX}
         </div>
       )}

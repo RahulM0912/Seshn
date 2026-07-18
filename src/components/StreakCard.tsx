@@ -31,7 +31,7 @@ export default async function StreakCard({ userId }: { userId: string }) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[12px] font-medium text-white">Day streak</p>
-          <p className="text-[11px] text-[#555555]">{sub}</p>
+          <p className="text-[11px] text-[#8A8A8A]">{sub}</p>
         </div>
         {milestone && (
           <span className="rounded-[20px] border-[0.5px] border-[#1A4D22] bg-[#0F2A15] px-2 py-[3px] text-[10px] font-medium text-[#22C55E]">
@@ -49,7 +49,7 @@ export default async function StreakCard({ userId }: { userId: string }) {
                 ? "bg-[#22C55E] font-medium text-[#0A0A0A]"
                 : d.state === "done"
                   ? "bg-[#0F2A15] text-[#22C55E]"
-                  : "text-[#555555]"
+                  : "text-[#8A8A8A]"
             }`}
           >
             <span className="text-[8px]">{d.letter}</span>

@@ -22,7 +22,7 @@ export default async function FriendsActivityCard({
       </p>
 
       {friends.length === 0 ? (
-        <p className="mt-2 text-[12px] leading-relaxed text-[#555555]">
+        <p className="mt-2 text-[12px] leading-relaxed text-[#8A8A8A]">
           Follow friends to see who&apos;s focusing right now and how long they&apos;ve
           put in today.
         </p>
@@ -31,7 +31,7 @@ export default async function FriendsActivityCard({
         // won't overflow today — but bound the height and scroll so it stays
         // tidy if that cap is ever raised. `-mr-1 pr-1` keeps the scrollbar off
         // the row content.
-        <div className="scrollbar-slim mt-3 -mr-1 flex max-h-[320px] flex-col gap-1 overflow-y-auto pr-1">
+        <div className="scrollbar-slim mt-3 -mr-1 flex max-h-[320px] flex-col gap-1 overflow-y-auto overscroll-contain pr-1">
           {friends.map(({ profile, minutesToday, postedToday }) => {
             const av = avatarColor(profile.id);
             return (
@@ -51,7 +51,7 @@ export default async function FriendsActivityCard({
                   <div className="truncate text-[12px] font-medium text-white">
                     {profile.display_name}
                   </div>
-                  <div className="truncate text-[11px] text-[#555555]">
+                  <div className="truncate text-[11px] text-[#8A8A8A]">
                     {postedToday
                       ? `${formatFocusTime(minutesToday)} today`
                       : "No session yet"}
@@ -62,7 +62,7 @@ export default async function FriendsActivityCard({
                     Done
                   </span>
                 ) : (
-                  <span className="flex-shrink-0 rounded-[20px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-[7px] py-0.5 text-[10px] text-[#555555]">
+                  <span className="flex-shrink-0 rounded-[20px] border-[0.5px] border-[#2A2A2A] bg-[#1C1C1C] px-[7px] py-0.5 text-[10px] text-[#8A8A8A]">
                     Idle
                   </span>
                 )}

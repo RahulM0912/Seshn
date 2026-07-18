@@ -37,7 +37,7 @@ export default function ExploreSearch({
       <Search
         size={15}
         aria-hidden
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#555555]"
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8A8A]"
       />
       <input
         type="text"
@@ -46,14 +46,14 @@ export default function ExploreSearch({
         placeholder="Search people by name or @username"
         aria-label="Search people"
         autoComplete="off"
-        className="w-full rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] py-2.5 pl-9 pr-9 text-[13px] text-white placeholder:text-[#555555] focus:border-[#22C55E] focus:outline-none"
+        className="w-full rounded-[12px] border-[0.5px] border-[#2A2A2A] bg-[#141414] py-2.5 pl-9 pr-9 text-[13px] text-white placeholder:text-[#8A8A8A] focus:border-[#22C55E] focus:outline-none"
       />
       {value && (
         <button
           type="button"
           onClick={() => setValue("")}
           aria-label="Clear search"
-          className="absolute right-2.5 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-[#555555] transition-colors hover:bg-[#1C1C1C] hover:text-white"
+          className="absolute right-2.5 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-[#8A8A8A] transition-colors hover:bg-[#1C1C1C] hover:text-white"
         >
           <X size={14} aria-hidden />
         </button>
