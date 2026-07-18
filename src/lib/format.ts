@@ -250,23 +250,18 @@ export interface StreakWeekDay {
 }
 
 /**
- * The 7-cell streak strip ending today (oldest → today), each cell labelled with
- * its weekday initial in the user's timezone. It renders the *continuous streak
- * run*, not raw activity: the last `current` consecutive days are "done", so a
- * 3-day streak shows 3 filled cells in a row — the strip can never contradict the
- * number above it. The final cell is always "today". `postedToday` decides whether
- * today counts toward the run (streak already includes it) or the run ends
- * yesterday. Powers `StreakCard` (Step 11).
+ * The 7-cell strip ending today (oldest → today), each cell labelled with its
+ * weekday initial in the user's timezone. Cells show *real activity*: a past
+ * day is "done" when that local day has a posted session (`activeDays`,
+ * YYYY-MM-DD strings in the user's tz) — so days studied before a streak broke
+ * still show, even though they're not in the current run. The final cell is
+ * always "today". Powers `StreakCard` (Step 11).
  */
 export function buildStreakWeek(
-  current: number,
-  postedToday: boolean,
+  activeDays: ReadonlySet<string>,
   timeZone: string,
 ): StreakWeekDay[] {
   const now = new Date();
-  // Past cells filled, counting back from yesterday. When today is already
-  // posted it's part of `current`, so one fewer past day is in the run.
-  const filledPast = Math.max(0, postedToday ? current - 1 : current);
   const cells: StreakWeekDay[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
@@ -276,7 +271,12 @@ export function buildStreakWeek(
     }).format(d);
     cells.push({
       letter,
-      state: i === 0 ? "today" : i <= filledPast ? "done" : "pending",
+      state:
+        i === 0
+          ? "today"
+          : activeDays.has(dayInTimeZone(d, timeZone))
+            ? "done"
+            : "pending",
     });
   }
   return cells;

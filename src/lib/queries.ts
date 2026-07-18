@@ -518,7 +518,7 @@ export async function getStreakCard(userId: string): Promise<StreakCardView> {
     current,
     alive,
     postedToday,
-    week: buildStreakWeek(current, postedToday, timezone),
+    week: buildStreakWeek(activeDays, timezone),
   };
 }
 
