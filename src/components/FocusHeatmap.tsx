@@ -14,10 +14,9 @@ import {
 import DaySummaryModal from "@/components/DaySummaryModal";
 
 // Profile focus heatmap (Step 15) — a GitHub-style contribution grid where each
-// cell is a day. On days that had a daily target (from the goal change log, so
-// past days keep the goal that was set then) the green deepens with progress
-// toward it — a fully green cell = target hit; other days deepen with absolute
-// minutes as before. The grid
+// cell is a day and its green deepens with the minutes focused that day. Days
+// that had a daily target (from the goal change log, so past days keep the goal
+// that was set then) note it in the tooltip — shading stays minutes-only. The grid
 // is fluid: week columns flex to fill the card and cells stay square, so the full
 // ~year fits with no horizontal scroll at any width. Hovering a cell raises a
 // styled tooltip (a Client Component just for that hover state); a single

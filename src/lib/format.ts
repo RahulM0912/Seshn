@@ -142,20 +142,9 @@ const MONTHS = [
 ];
 const DAY_MS = 86_400_000;
 
-/**
- * Minutes → 0–4 intensity. When the day had a target, intensity is progress
- * toward it (a fully green cell = target hit); without one it falls back to
- * absolute buckets (0 / <30 / <60 / <120 / 120+).
- */
-function heatLevel(minutes: number, goal: number | null): 0 | 1 | 2 | 3 | 4 {
+/** Minutes → 0–4 intensity. Half-open buckets: 0 / <30 / <60 / <120 / 120+. */
+function heatLevel(minutes: number): 0 | 1 | 2 | 3 | 4 {
   if (minutes <= 0) return 0;
-  if (goal) {
-    const ratio = minutes / goal;
-    if (ratio >= 1) return 4;
-    if (ratio >= 0.66) return 3;
-    if (ratio >= 0.33) return 2;
-    return 1;
-  }
   if (minutes < 30) return 1;
   if (minutes < 60) return 2;
   if (minutes < 120) return 3;
@@ -191,7 +180,7 @@ export type HeatmapRange = number | "current";
  *
  * `goalHistory` (the daily-goal change log, oldest first) resolves each cell to
  * the target in force *that* day — a day's goal is the last change on or before
- * it — so intensity can read as progress-toward-target where one was set.
+ * it. Display-only (the cell tooltip): intensity stays purely minutes-based.
  */
 export function buildFocusHeatmap(
   minutesByDay: Record<string, number>,
@@ -257,7 +246,7 @@ export function buildFocusHeatmap(
         totalMinutes += minutes;
         activeDays += 1;
       }
-      week.push({ date: day, minutes, goal, level: heatLevel(minutes, goal) });
+      week.push({ date: day, minutes, goal, level: heatLevel(minutes) });
     }
     weeks.push(week);
 
