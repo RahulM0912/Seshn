@@ -94,6 +94,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      daily_goal_history: {
+        Row: {
+          id: number;
+          user_id: string;
+          minutes: number | null;
+          changed_at: string;
+        };
+        Insert: {
+          id?: never;
+          user_id: string;
+          minutes?: number | null;
+          changed_at?: string;
+        };
+        Update: {
+          id?: never;
+          user_id?: string;
+          minutes?: number | null;
+          changed_at?: string;
+        };
+        Relationships: [];
+      };
       sessions: {
         Row: {
           id: string;

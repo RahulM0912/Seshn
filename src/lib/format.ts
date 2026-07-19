@@ -121,6 +121,8 @@ export interface HeatmapDay {
   /** Local day-string (YYYY-MM-DD, user tz) this cell represents. */
   date: string;
   minutes: number;
+  /** The daily target in force *that* day (change log), null if none. */
+  goal: number | null;
   /** 0 (none) → 4 (most) intensity bucket, drives the cell's green shade. */
   level: 0 | 1 | 2 | 3 | 4;
 }
@@ -175,13 +177,27 @@ export type HeatmapRange = number | "current";
  * Calendar dates are enumerated in UTC so they're stable across DST — a date is
  * just a label here, matching the local day-strings the keys already use. Only
  * "today" is timezone-aware, to place the rolling window and blank out the future.
+ *
+ * `goalHistory` (the daily-goal change log, oldest first) resolves each cell to
+ * the target in force *that* day — a day's goal is the last change on or before
+ * it. Display-only (the cell tooltip): intensity stays purely minutes-based.
  */
 export function buildFocusHeatmap(
   minutesByDay: Record<string, number>,
+  goalHistory: readonly GoalChange[],
   range: HeatmapRange,
   timeZone: string,
 ): HeatmapView {
   const todayStr = dayInTimeZone(new Date(), timeZone);
+
+  // Change log → (local day, minutes) pairs; cells are enumerated in date
+  // order, so a single advancing pointer resolves each cell's goal in O(1).
+  const changes = goalHistory.map((g) => ({
+    day: dayInTimeZone(new Date(g.changed_at), timeZone),
+    minutes: g.minutes,
+  }));
+  let changeIdx = 0;
+  let currentGoal: number | null = null;
 
   let start: Date; // a Sunday (col 0, row 0), UTC-anchored
   let cols: number;
@@ -220,12 +236,17 @@ export function buildFocusHeatmap(
         week.push(null);
         continue;
       }
+      while (changeIdx < changes.length && changes[changeIdx].day <= day) {
+        currentGoal = changes[changeIdx].minutes;
+        changeIdx += 1;
+      }
+      const goal = currentGoal && currentGoal > 0 ? currentGoal : null;
       const minutes = minutesByDay[day] ?? 0;
       if (minutes > 0) {
         totalMinutes += minutes;
         activeDays += 1;
       }
-      week.push({ date: day, minutes, level: heatLevel(minutes) });
+      week.push({ date: day, minutes, goal, level: heatLevel(minutes) });
     }
     weeks.push(week);
 
@@ -241,6 +262,14 @@ export function buildFocusHeatmap(
   }
 
   return { weeks, monthLabels, totalMinutes, activeDays };
+}
+
+/** One entry of the daily-goal change log (`daily_goal_history`). */
+export interface GoalChange {
+  /** The goal in minutes from this change on; null = goal turned off. */
+  minutes: number | null;
+  /** When the change happened (ISO timestamptz). */
+  changed_at: string;
 }
 
 export interface StreakWeekDay {
