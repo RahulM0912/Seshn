@@ -7,13 +7,17 @@ import {
   dayInTimeZone,
   formatFocusLong,
   formatFocusTime,
+  type GoalChange,
   type HeatmapDay,
   type HeatmapRange,
 } from "@/lib/format";
 import DaySummaryModal from "@/components/DaySummaryModal";
 
 // Profile focus heatmap (Step 15) — a GitHub-style contribution grid where each
-// cell is a day and its green deepens with the minutes focused that day. The grid
+// cell is a day. On days that had a daily target (from the goal change log, so
+// past days keep the goal that was set then) the green deepens with progress
+// toward it — a fully green cell = target hit; other days deepen with absolute
+// minutes as before. The grid
 // is fluid: week columns flex to fill the card and cells stay square, so the full
 // ~year fits with no horizontal scroll at any width. Hovering a cell raises a
 // styled tooltip (a Client Component just for that hover state); a single
@@ -42,21 +46,25 @@ interface Hover {
   /** Caret nudge so it keeps pointing at the cell when the body is edge-clamped. */
   caretOffset: number;
   minutes: number;
+  goal: number | null;
   date: string;
 }
 
-// Tooltip box is ~2 lines; reserve this much room to decide above vs. below and to
-// keep the body from spilling off the card's edges.
+// Tooltip box is 2–3 lines (3 when the day had a target); reserve this much
+// room to decide above vs. below and to keep the body inside the card.
 const TIP_HALF_WIDTH = 48;
-const TIP_HEIGHT = 48;
+const TIP_HEIGHT = 60;
 
 export default function FocusHeatmap({
   minutesByDay,
+  goalHistory,
   timeZone,
   isOwnProfile = false,
   maxStreak,
 }: {
   minutesByDay: Record<string, number>;
+  /** Daily-goal change log (oldest first) — resolves each day's target. */
+  goalHistory: GoalChange[];
   timeZone: string;
   /** On the owner's own profile, day cells with focus open a share-able recap. */
   isOwnProfile?: boolean;
@@ -88,8 +96,8 @@ export default function FocusHeatmap({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const { weeks, monthLabels, totalMinutes, activeDays } = useMemo(
-    () => buildFocusHeatmap(minutesByDay, view, timeZone),
-    [minutesByDay, view, timeZone],
+    () => buildFocusHeatmap(minutesByDay, goalHistory, view, timeZone),
+    [minutesByDay, goalHistory, view, timeZone],
   );
   const labelByCol = new Map(monthLabels.map((m) => [m.col, m.label]));
   const viewLabel = view === "current" ? "Current" : String(view);
@@ -140,7 +148,15 @@ export default function FocusHeatmap({
     const caretOffset = Math.max(-34, Math.min(34, center - x));
     const below = el.offsetTop < TIP_HEIGHT;
     const y = below ? el.offsetTop + el.offsetHeight + 6 : el.offsetTop - 6;
-    setHover({ x, y, below, caretOffset, minutes: cell.minutes, date: cell.date });
+    setHover({
+      x,
+      y,
+      below,
+      caretOffset,
+      minutes: cell.minutes,
+      goal: cell.goal,
+      date: cell.date,
+    });
   }
 
   return (
@@ -297,6 +313,11 @@ export default function FocusHeatmap({
             <div className="text-[11px] font-semibold text-white">
               {hover.minutes > 0 ? formatFocusTime(hover.minutes) : "No focus"}
             </div>
+            {hover.goal !== null && (
+              <div className="mt-0.5 text-[10px] text-[#888888]">
+                Target: {formatFocusTime(hover.goal)}
+              </div>
+            )}
             <div className="mt-0.5 text-[10px] text-[#888888]">
               {prettyDay(hover.date)}
             </div>

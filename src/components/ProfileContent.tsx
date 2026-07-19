@@ -9,6 +9,7 @@ import {
   getDailyFocusMinutes,
   getFocusHeatmap,
   getFollowCounts,
+  getGoalHistory,
   getLikedSessionIds,
   getStreak,
   getUserSessions,
@@ -44,13 +45,15 @@ export default async function ProfileContent({
   profile: Profile;
   viewer: Viewer | null;
 }) {
-  const [sessions, dailyMinutes, follows, streak, heatmap] = await Promise.all([
-    getUserSessions(profile.id),
-    getDailyFocusMinutes(profile.id),
-    getFollowCounts(profile.id),
-    getStreak(profile.id),
-    getFocusHeatmap(profile.id, profile.timezone),
-  ]);
+  const [sessions, dailyMinutes, follows, streak, heatmap, goalHistory] =
+    await Promise.all([
+      getUserSessions(profile.id),
+      getDailyFocusMinutes(profile.id),
+      getFollowCounts(profile.id),
+      getStreak(profile.id),
+      getFocusHeatmap(profile.id, profile.timezone),
+      getGoalHistory(profile.id),
+    ]);
 
   const av = avatarColor(profile.id);
   const streakDisplay =
@@ -138,9 +141,11 @@ export default async function ProfileContent({
         </div>
       </section>
 
-      {/* Focus activity heatmap */}
+      {/* Focus activity heatmap — target-aware: on days that had a daily goal
+          (change log), cell intensity is progress toward it. */}
       <FocusHeatmap
         minutesByDay={heatmap}
+        goalHistory={goalHistory}
         timeZone={profile.timezone}
         isOwnProfile={isOwnProfile}
         maxStreak={streak?.longest_streak ?? 0}
