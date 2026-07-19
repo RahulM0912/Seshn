@@ -4,6 +4,7 @@ import {
   buildStreakWeek,
   dayInTimeZone,
   isStreakAlive,
+  type GoalChange,
   type StreakWeekDay,
 } from "@/lib/format";
 import type {
@@ -442,6 +443,23 @@ export async function getFocusHeatmap(
     byDay[day] = (byDay[day] ?? 0) + (s.focus_minutes ?? 0);
   }
   return byDay;
+}
+
+/**
+ * A user's daily-goal change log, oldest first, for the profile week chart —
+ * each day is charted against the goal that was in force *that* day (the
+ * `daily_goal_history` trigger records every change; `buildWeekTrend` resolves
+ * a day to its last change). Public-readable, like the current goal itself.
+ */
+export async function getGoalHistory(userId: string): Promise<GoalChange[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("daily_goal_history")
+    .select("minutes, changed_at")
+    .eq("user_id", userId)
+    .order("changed_at", { ascending: true });
+  if (error) console.error("getGoalHistory:", error.message);
+  return data ?? [];
 }
 
 export interface FollowCounts {

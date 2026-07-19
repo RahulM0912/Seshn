@@ -3,12 +3,12 @@ import { Flame } from "lucide-react";
 import SessionList from "@/components/SessionList";
 import FocusHeatmap from "@/components/FocusHeatmap";
 import FollowButton from "@/components/FollowButton";
-import ShareTodayButton from "@/components/ShareTodayButton";
 import {
   SESSIONS_PAGE_SIZE,
   getDailyFocusMinutes,
   getFocusHeatmap,
   getFollowCounts,
+  getGoalHistory,
   getLikedSessionIds,
   getStreak,
   getUserSessions,
@@ -44,13 +44,15 @@ export default async function ProfileContent({
   profile: Profile;
   viewer: Viewer | null;
 }) {
-  const [sessions, dailyMinutes, follows, streak, heatmap] = await Promise.all([
-    getUserSessions(profile.id),
-    getDailyFocusMinutes(profile.id),
-    getFollowCounts(profile.id),
-    getStreak(profile.id),
-    getFocusHeatmap(profile.id, profile.timezone),
-  ]);
+  const [sessions, dailyMinutes, follows, streak, heatmap, goalHistory] =
+    await Promise.all([
+      getUserSessions(profile.id),
+      getDailyFocusMinutes(profile.id),
+      getFollowCounts(profile.id),
+      getStreak(profile.id),
+      getFocusHeatmap(profile.id, profile.timezone),
+      getGoalHistory(profile.id),
+    ]);
 
   const av = avatarColor(profile.id);
   const streakDisplay =
@@ -89,10 +91,9 @@ export default async function ProfileContent({
       </Link>
     ) : null;
 
-  // On your own profile the follow slot is empty — reuse it for "Share today",
-  // but only once there's something to brag about (focus logged today).
-  const topRightSlot =
-    isOwnProfile && dailyMinutes > 0 ? <ShareTodayButton /> : followSlot;
+  // On your own profile the follow slot is simply empty (you can't follow
+  // yourself); the day-recap share lives on the heatmap's day cells instead.
+  const topRightSlot = followSlot;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
@@ -138,9 +139,11 @@ export default async function ProfileContent({
         </div>
       </section>
 
-      {/* Focus activity heatmap */}
+      {/* Focus activity heatmap — intensity is minutes-based; days that had a
+          daily goal (change log) show it in the cell tooltip. */}
       <FocusHeatmap
         minutesByDay={heatmap}
+        goalHistory={goalHistory}
         timeZone={profile.timezone}
         isOwnProfile={isOwnProfile}
         maxStreak={streak?.longest_streak ?? 0}
